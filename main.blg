@@ -1,0 +1,18 @@
+[0] Config.pm:307> INFO - This is Biber 2.19
+[0] Config.pm:310> INFO - Logfile is 'main.blg'
+[27] biber-darwin:340> INFO - === So Jun 30, 2024, 20:31:17
+[35] Biber.pm:419> INFO - Reading 'main.bcf'
+[69] Biber.pm:979> INFO - Found 9 citekeys in bib section 0
+[75] Biber.pm:4419> INFO - Processing section 0
+[80] Biber.pm:4610> INFO - Looking for bibtex file 'bachelorarbeit.bib' for section 0
+[81] bibtex.pm:1713> INFO - LaTeX decoding ...
+[86] bibtex.pm:1519> INFO - Found BibTeX data source 'bachelorarbeit.bib'
+[126] UCollate.pm:68> INFO - Overriding locale 'de-DE' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[126] UCollate.pm:68> INFO - Overriding locale 'de-DE' defaults 'variable = shifted' with 'variable = non-ignorable'
+[126] Biber.pm:4239> INFO - Sorting list 'nty/global//global/global' of type 'entry' with template 'nty' and locale 'de-DE'
+[126] Biber.pm:4245> INFO - No sort tailoring available for locale 'de-DE'
+[132] bbl.pm:660> INFO - Writing 'main.bbl' with encoding 'UTF-8'
+[134] bbl.pm:763> INFO - Output to main.bbl
+[134] Biber.pm:131> WARN - legacy month field 'March' in entry 'lotz' is not an integer - this will probably not sort properly.
+[134] Biber.pm:131> WARN - ISBN '9783642202117 9783642202124' in entry 'ledoux_probability_2011' is invalid - run biber with '--validate_datamodel' for details.
+[134] Biber.pm:133> INFO - WARNINGS: 2

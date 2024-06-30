@@ -1,0 +1,1629 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[german]{babel}
+
+\usepackage{amsthm, amssymb, amsmath}
+\usepackage{bbm}
+\usepackage{dsfont}
+\usepackage{mathtools}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+
+\usepackage{geometry}
+\geometry{a4paper, portrait, margin=30mm}
+ \usepackage[onehalfspacing]{setspace}
+ \parindent 0pt
+\usepackage[bottom]{footmisc}
+ 
+\relpenalty=10000
+\binoppenalty=9999
+\sloppy
+
+\usepackage[backend = biber, sorting = nty]{biblatex}
+\addbibresource{bachelorarbeit.bib}
+
+
+
+
+
+
+\DeclareMathOperator{\sign}{sgn}
+\DeclareMathOperator{\Tr}{Tr}
+\DeclarePairedDelimiter\abs{\lvert}{\rvert}%
+\DeclarePairedDelimiter\norm{\lVert}{\rVert}%
+% Swap the definition of \abs* and \norm*, so that \abs
+% and \norm resizes the size of the brackets, and the 
+% starred version does not.
+\makeatletter
+\let\oldabs\abs
+\def\abs{\@ifstar{\oldabs}{\oldabs*}}
+%
+\let\oldnorm\norm
+\def\norm{\@ifstar{\oldnorm}{\oldnorm*}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+
+\theoremstyle{plain}
+\newtheorem{thm}{Satz}[subsection]
+\newtheorem{cor}[thm]{Korollar}
+\newtheorem{lemma}[thm]{Lemma}
+\newtheorem{bem}[thm]{Bemerkung}
+
+\theoremstyle{definition}
+\newtheorem{dfn}[thm]{Definition}
+
+\title{Bachelor Arbeit - Max Lewerenz}
+\author{Max Lewerenz}
+\date{October 2020}
+
+\begin{document}
+\begin{titlepage}
+    \begin{center}
+
+       \huge\textbf{Universität Hamburg}\\
+       \Large\text{Studiengang Mathematik}
+       
+       \vspace*{2cm}
+       
+       \large\text{Bachelorarbeit im Bereich der Optimierung und Approximation}\\
+       \large\text{zum erlangen des akademischen Grades}\\
+       \large\text{Bachelor of Science}
+       
+       \vspace*{3cm}
+       
+       \Huge\textbf{Support Vector Machines}\\
+       \huge\text{als empirische Risikominimierer}
+       
+       \vspace*{3cm}
+       
+       \normalsize
+       \begin{tabular}{ll}
+            Autor: & Max Lewerenz\\
+            Matrikelnummer: & 7048126\\
+            Erstgutachter: & Dr. Matthias Beckmann \\
+            Zweitgutachter: & Prof. Dr. Armin Iske
+       \end{tabular}
+       
+       \vspace*{2cm}
+       
+    \end{center}   
+    
+\end{titlepage}
+
+\tableofcontents
+
+
+\newpage
+
+\section{Einführung}
+\subsection{Voraussetzungen}
+    Diese Bachelorarbeit setzt grundlegende Begriffe und Resultate der Einführungsveranstaltungen Analysis und Lineare Algebra, sowie der Stochastik voraus. Die Kapitel $1$ und $2$ des Skriptes \textit{Mathematics of Machine Learning} von Martin Lotz decken die geforderten Kenntnisse ab.
+    
+
+\subsection{Einführung in die Thematik}
+    Die Support Vector Machine (folgend auch SVM, dt. Stütz Vektor Maschine), ist eine weit verbreitete Methode des maschinellen Lernens. Die Support Vector Machine dient zur Klassifikation von Daten. Die SVM erstellt zu einer Trainingsmenge, eine Zweiklassenpartition von Punkten, ein Modell, welches neue Datenpunkte einer der beiden Klassen zuordnet. Sie tut dies indem sie die Trainingsbeispiele in einen Raum abbildet und in diesem eine möglichst große Lücke zwischen den beiden Klassen findet. Um neue Beispiele zu klassifizieren, werden diese ebenfalls in den Raum abgebildet und dort je nachdem auf welcher Seite der Lücke sie liegen einer der beiden Klassen zugeordnet.
+    Im einfachsten Fall geschieht dies durch eine Ebene im Raum. Der in Kapitel \ref{chapter_kernel} besprochene Kernel Trick lässt jedoch auch nicht lineare Entscheidungsfunktionen zu.
+    
+    Ein modernes Beispiel für die Anwendung wäre zum Beispiel das Vorhersagen von Hautkrebs anhand von Bildern. Gegeben einer Datenmenge von Bildern von Pigmentzellen von denen man weiß ob diese bösartige Melanome sind oder nicht, kann man eine SVM anlernen. Die SVM ordnet dann neue Bilder einer gutartigen oder bösartigen Klasse zu.
+    
+    Die Theorie der Support Vector Machine lässt sich in das Feld der statistischen Lerntheorie einordnen. Dieses Gebiet ist Gegenstand aktueller Forschung. Insbesondere der Umgang mit sehr großen Datenmengen in der Praxis und die Untersuchung wie sich das Finden der Entscheidungsfunktion beschleunigen kann beschäftigen die Wissenschaftler.
+    
+    Das Ziel dieser Arbeit ist eine Einführung in die Thematik der Support Vector Machine zu liefern und diese aus statistischer Sicht genauer zu betrachten.
+    
+    Um dieses Ziel zu erfüllen wurden Beweise aus der Literatur an einigen Stellen in Eigenleistung ergänzt und ausführlicher gestaltet. Darüber hinaus wurden Risikoschranken und Oracle-Inequalities für spezifische Wahlen von Kernelfunktionen vom Autor untersucht. An Stellen an denen Beweise, Korollare oder Lemma aus der Literatur übernommen wurden, wird an entsprechender Stelle auf die Literatur verwiesen auch wenn der entsprechende Beweis vom Autor ergänzt, kommentiert oder ausführlicher gestaltet wird. Darüber hinaus sind alle graphischen Darstellungen in dieser Arbeit vom Autor erstellt und dienen der Veranschaulichung und dem besseren Verständnis. 
+    
+\subsection{Übersicht}
+    Die Arbeit ist wie folgt gegliedert. Zunächst wird die Support Vector Machine über die geometrische Interpretation eingeführt. Dann wird die äquivalente Formulierung der Support Vector Machine als empirischer Risikominimierer vorgestellt um im weiteren Verlauf die statistische Untersuchung zu ermöglichen. Bis zu diesem Punkt wurden nur lineare Entscheidungsfunktionen untersucht, Kapitel \ref{chapter_kernel} präsentiert den weit verbreiteten Kernel Trick um auch nicht lineare Entscheidungsfunktionen zuzulassen. Abschließend werden eine Risikoabschätzung und eine Oracle Ungleichung vorgestellt und diese für verschiedene Wahlen der Kernel untersucht.
+    
+\subsection{Literatur}
+    Als Quellen dieser Arbeit dienten hauptsächlich die Skripte
+    \begin{itemize}
+        \item[\cite{lotz}] Martin Lotz: \textit{Mathematics of Machine Learning}
+        \item [\cite{trabs}] Mathias Trabs: \textit{The Mathematics of Machine Learning}
+    \end{itemize}
+    Unterstützend diente das sehr ausführliche Buch über Support Vector Machines
+    \begin{itemize}
+        \item[\cite{svm}] Andreas Christmann, Ingo Steinwart: \textit{Support Vector Machines}
+    \end{itemize}
+    Zusätzlich dienten die folgenden Bücher über maschinelles Lernen im weiteren Rahmen als Quellen
+    \begin{itemize}
+        \item[\cite{understanding}] Shai Ben-David, Shai Shalev-Shwartz: \textit{Understanding Machine Learning: From Theory to Algorithms}
+        \item[\cite{fundamentals}] Floris Ernst, Achim Schweikard: \textit{Fundamentals of Machine Learning}
+        \item[\cite{foundations}] Mehryar Mohri, Afshin Rostamizadeh, Ameet Talwalkar: \textit{Foundations of Machine Learning}
+    \end{itemize}
+    
+    Um sich über den aktuellen Stand der Forschung und engere statistische Abschätzungen zu informieren wurden unter anderem die Folgenden Artikel gesichtet, diese dienten jedoch im weiteren Verlauf nicht als Quelle dieser Arbeit.
+    \begin{itemize}
+        \item[\cite{blanchard_statistical_2008}] Gilles Blanchard, Oliver Busquet, Pascal Massart: \textit{Statistical Performance of Support Vector Machines}
+        \item[\cite{STEINWART2021101513}] Simon Fischer, Ingo Steinwart: \textit{A closer look at covering number bounds for Gaussian kernels}
+    \end{itemize}
+    
+    
+\newpage
+
+\section{Grundlagen}
+\subsection{Ausgangssituation}
+    Die Situationen in denen Support Vector Machines angewendet werden lassen sich wie folgt modellieren. Die Daten die klassifiziert werden sollen stammen aus einer Menge $\mathcal{X} \subseteq \mathbb{R}^{d}$, $d \in \mathbb{N}$. Jedes Element aus der Datenmenge ist genau einer von zwei Klassen zugeordnet. Die Menge der Klassen wird im Folgenden mit $\mathcal{Y} = \{-1, 1\}$ bezeichnet. Um später statistische Untersuchungen anstellen zu können wird angenommen, dass die Daten einer Wahrscheinlichkeitsverteilung $\mathcal{D}$ auf $\mathcal{X} \times \mathcal{Y}$ unterliegen. Hierbei ist das Wahrscheinlichkeitsmaß eingeschränkt auf $\mathcal{Y}$ vollständig von $\mathcal{X}$ abhängig. Gleiche Datenpunkte sollen immer der gleichen Klasse zugeordnet werden. Das heißt für zwei Zufallsvariablen $(X,Y) \sim \mathcal{D}$ und $(x,y) \in \mathcal{X} \times \mathcal{Y}$ gilt
+    \[
+        \mathbb{P}_{\mathcal{D}}(Y = y \mid X = x) =  \left\{
+            \begin{array}{ll}
+                 1 & \, \textrm{falls $y$ die Klasse von $x$ beschreibt}   \\
+                 0 & \, \textrm{sonst.} \\ 
+            \end{array}
+            \right.
+    \]
+    Stichproben der Größe $m \in \mathbb{N}$ können nun als Zufallsvariablen mit der Verteilung $(X,Y) \sim \mathcal{D}^{m}$ angesehen werden. Wobei auf $\mathcal{D}^{m}$ die Produkt-$\sigma$-Algebra betrachtet wird.
+    
+% \begin{dfn}[Entscheidungsfunktion, Klassifizierungsfunktion]
+    
+% \end{dfn}
+
+\subsection{Support Vector Machine als Abstandsmaximierer}\label{chapter_abstand}
+
+\subsubsection{Hard-margin SVM}
+    
+    Wir starten mit einer Menge von Bezeichnern ${\mathcal{Y} = \{-1, 1 \}}$ und Trainingspunkten $\mathcal{X} = \{x_1,...,x_m\} \subseteq \mathbb{R}^d$. Jedem Trainingspunkt $x_i \in \mathcal{X}$ ist eine Klasse $y_i \in \mathcal{Y}$ zugeordnet. Die Datenmenge ergibt sich zu $D = \{ (x_1, y_1), ..., (x_m,y_m)\} \subseteq \mathbb{R}^d \times \mathcal{Y}$. \\
+    Im einfachsten Fall sind die Daten linear trennbar. Das heißt, dass eine affine Hyperebene $h(x) = w^T x + b$ existiert, mit
+    $h(x) = 
+    \begin{cases}
+         h(x_i) > 0 & \, \textrm{, falls } y_i = 1 \\
+         h(x_i) < 0 & \, \textrm{, falls } y_i = -1\\
+    \end{cases}$.
+    Das Problem kann beschrieben werden als Suche nach Vektoren $w \in \mathbb{R}^d, b \in \mathbb{R}$ so, dass
+    \begin{equation}\label{ineq_hard-margin_1}
+    \begin{split}
+        w^T x_i + b & \geq 1 \enspace \enspace \enspace \text{ für } y_i = 1 \\
+        w^T x_i + b & \leq -1 \enspace \enspace \text{ für } y_i = -1
+    \end{split}
+    \end{equation}
+    für alle $i = 1,..., m$. \\
+    
+    Wir bemerken, dass sich die Hyperebene durch skalieren von $w$ und $b$ nicht ändert, wir können also $1$ und $-1$ durch beliebige positive respektive negative Werte ersetzen. \\
+    Außerdem sehen wir, dass wir die Ungleichungen~\ref{ineq_hard-margin_1} äquivalent als $y_i(w^T x + b) - 1$ beschreiben können. Ziel ist es die Ebene zu finden, die den Abstand zu den Punkten die der Ebene am nächsten liegen zu maximieren. \\
+    Im folgenden beschreibt $H = \{x \in \mathbb{R}^d \mid w^T x + b = 0\}, w \in \mathbb{R}^d, b \in \mathbb{R}$ eine Hyperebene im $\mathbb{R}^d$.
+    \begin{dfn}[Margin]
+        Seien $\delta_+$ und $\delta_-$ die Abstände der Hyperebene zu den nächsten positiven beziehungsweise negativen Datenpunkten. Dann heißt $\delta := \delta_+ + \delta_-$ \textbf{Margin} (dt. \textbf{Rand}).
+    \end{dfn}
+    
+    \newpage
+    \begin{thm}[Lotz, 2020,\cite{lotz} Chapter 17]
+        Die Margin einer Hyperebene $H$, beschrieben durch ${w^T x + b = 0}$, erfüllt die Gleichung
+        \[
+            \delta = \frac{2}{\|w\|_{2}}.
+        \]
+    \end{thm}
+    \begin{proof}
+        Sei $x \in \mathbb{R}^d$ mit $w^T x + b = 1$. Also ist $x$ ein nächster Punkt an $H$. 
+        Wähle $p = c w \in H \subseteq \mathbb{R}^d$ mit $c \in \mathbb{R}$ ein vielfaches von $w$, das auf der Hyperebene liegt.
+        Es gilt also $\langle w, c w \rangle + b = 0$. Es folgt
+        \[
+            \langle w, c w \rangle + b = 0 
+            \enspace \Leftrightarrow \enspace
+            c \langle w, w \rangle + b = 0
+            \enspace \Leftrightarrow \enspace
+            c = - \frac{b}{\|w\|_{2}^{2}}.
+        \]
+        Insbesondere $p = -(\frac{b}{\|w\|^2})w$.
+        Der Abstand von $x$ zur Ebene lässt sich nun mithilfe der orthogonalen Projektion berechnen zu
+        \begin{equation*}
+        \begin{split}
+            \delta_+ & = \langle x - p , \frac{w}{\|w\|_{2}} \rangle 
+            = \langle x + \frac{b}{\|w\|_{2}^{2}} w,  \frac{w}{\|w\|_2} \rangle
+            = \frac{\langle x, w \rangle}{\|w\|_2} + \frac{b}{\|w\|_{2}^3} \langle w, w \rangle \\
+            & = \frac{1 - b}{\|w\|_2} + \frac{b}{\|w\|_2}
+            = \frac{1}{\|w\|_2}.
+        \end{split}
+        \end{equation*}
+        Analog berechnet man $\delta_-$ für ein $x \in \mathbb{R^d}$ mit $w^T x + b = -1$.
+        Also 
+        \[
+            \delta = \delta_+ + \delta_- = \frac{2}{\|w\|_2}.
+        \]
+    \end{proof}
+    
+    \begin{figure}[h]
+    \centering
+    \begin{tikzpicture}
+        % Koordinaten Kreuz
+        \draw[->, thick] (-1,0) -- (5,0);
+        \draw[->, thick] (0,-1) -- (0,5);
+        
+        % Trennende Hyperebene
+        \draw (-1, 5) -- (5,-1);
+        \node at (4,0)[label={90:{$H$}}]{};
+        
+        %w
+        \draw[->] (2, 2) -- (3,3);
+        \node at (3,3)[label={120:{$w$}}]{};
+        
+        %w / norm(w)
+        \draw[->, blue, thick] (2,2) -- (2.7, 2.7);
+        \node at (2.35,2.35)[label={[text=blue]120:{$\frac{w}{\|w\|}$}}]{};
+        
+        % x
+        %\draw[->] (0,0) -- (3,2);
+        \node at (3,2)[label={0:{$x$}},circle, fill, red, inner sep=1pt]{};
+        
+        % x - p
+        \draw (2,2) -- (3,2);
+        
+        % projection
+        \draw[dashed,blue] (2.5,2.5) -- (3,2);
+        
+        % distance delta
+        \draw [decorate, decoration={brace, amplitude=10pt,mirror, raise=1pt}] (2.5,1.5) -- (3,2) node [black, midway, xshift=0.5cm, yshift=-0.5cm] {\footnotesize $\delta_{+}$};
+        
+        % Green Nodes
+        \node at (1,1)[circle, fill, green, inner sep=1.5pt]{};
+        \node at (0.5,0.7)[circle, fill, green, inner sep=1.5pt]{};
+        \node at (2,0.5)[circle, fill, green, inner sep=1.5pt]{};
+        \node at (0.5,2)[circle, fill, green, inner sep=1.5pt]{};
+        
+        % Red Nodes
+        \node at (1,4.5)[circle, fill, red, inner sep=1.5pt]{};
+        \node at (2,4)[circle, fill, red, inner sep=1.5pt]{};
+        \node at (4,2.5)[circle, fill, red, inner sep=1.5pt]{};
+    \end{tikzpicture}
+    \caption{Berechnung der Margin}
+    \end{figure}
+    
+    
+    \begin{dfn}[Stützvektor, support Vector] \label{dfn:support_vector}
+        Sei $H$ eine Hyperebene. 
+        Dann heißt ein Punkt $x \in \mathbb{R}^d$ mit $w^T x + b \in \{-1, 1\}$ \textbf{Stützvektor}.
+    \end{dfn}
+    Wir bemerken, dass Stützvektoren genau die Punkte der Datenmenge sind, die am nächsten an der Hyperebene liegen.
+    
+    Wollen wir nun zu einer Datenmenge $D = \{ (x_1, y_1), ..., (x_m,y_m)\}$ die Hyperebene mit dem größten Rand $\delta$ finden, so ergibt sich das Optimierungsproblem
+    \begin{equation} \label{hard_margin_min}
+    \begin{split}
+        & \min_{w \in \mathbb{R}^d, b \in \mathbb{R}} \|w\|_{2}^{2} \\
+        & \textrm{so dass } y_i(w^T x_i + b ) - 1 \geq 0 \textrm{ für alle } i \in \{1,...,m\}.
+    \end{split}
+    \end{equation}
+    
+\subsubsection{Soft-margin SVM}
+
+Betrachten wir nun den Fall, dass sich die Daten nicht linear durch eine Hyperebene im $\mathbb{R}^d$ trennen lassen. Die Nebenbedingungen in (\ref{hard_margin_min}) lassen sich in diesem Fall nicht erfüllen. Wir passen das Problem an, indem wir Missklassifikation erlauben. Dies geschieht durch das Einführen sogenannter slack Variables (dt. Schlupfvariablen) $\xi = (\xi_1,...,\xi_m)^T \in \mathbb{R}^d$. Die Nebenbedinugungen aus  (\ref{hard_margin_min}) ändern sich zu
+\begin{equation*}
+\begin{split}
+    w^T x_i + b & \geq 1 - \xi_i  \enspace \textrm{ , falls } y_i = 1 \\
+    w^T x_i + b & \leq - 1 + \xi_i \textrm{ , falls } y_i = -1.
+\end{split}
+\end{equation*}
+Liegt der i-te Datenpunkt auf der richtigen Seite der Hyperebene und jenseits der Margin $\delta$, so ist $\xi_i = 0$.
+Liegt der i-te Datenpunkt zwischen Margin und Hyperebene, jedoch auf der richtigen Seite der Hyperebene, so gilt $\xi_i \in (0,1)$. Liegt der i-te Datenpunkt auf der falschen Seite der Hyperebene, so wird $x_i$ falsch klassifiziert und es gilt $\xi_i > 1$.
+Das Soft-margin SVM Optimierungsproblem ergibt sich zu 
+\begin{equation}\label{eqn:soft_margin_min}
+\begin{split}
+    & \min_{w, \xi \in \mathbb{R}^d, b \in \mathbb{R}} \|w\|_{2}^{2} + \frac{C}{m} \sum_{i = 1}^{m} \xi_i \\
+    & \textrm{so dass } y_i(w^T x_i + b ) - 1 + \xi_i \geq 0, \, \xi_i \geq 0 \textrm{ für alle } i \in \{1,...,m\}
+\end{split}
+\end{equation}
+für einen Regularisierungsparameter $C \in \mathbb{R}$.
+
+\begin{figure}[h]
+    \centering
+    \begin{tikzpicture}
+        % Koordinaten Kreuz
+        \draw[->, thick] (-1,0) -- (5,0);
+        \draw[->, thick] (0,-1) -- (0,5);
+        
+        % Trennende Hyperebene
+        \draw (-1, 5) -- (5,-1);
+        \draw[dashed] (0,5) -- (5,0);
+        \draw[dashed] (-1,4) -- (4,-1);
+        
+        % Red Node in Margin
+        \node at (1.7,2.7)[circle, fill, red, inner sep=1.5pt]{};
+        \draw[->] (2,3) -- (1.7,2.7);
+        \node at (1.85,2.85)[label={180:{$\xi_{i}$}}]{};
+        
+        % Red Node on other side of the plane
+        \node at (3,0)[circle, fill, red, inner sep=1.5pt]{};
+        \draw[->] (4,1) -- (3,0);
+        \node at (3.5,0.5)[label={0:{$\xi_{j}$}}]{};
+        
+        % Green Nodes
+        \node at (1,1)[circle, fill, green, inner sep=1.5pt]{};
+        \node at (0.5,0.7)[circle, fill, green, inner sep=1.5pt]{};
+        \node at (2,0.5)[circle, fill, green, inner sep=1.5pt]{};
+        \node at (0.5,2)[circle, fill, green, inner sep=1.5pt]{};
+        
+        % Red Nodes
+        \node at (1,4.5)[circle, fill, red, inner sep=1.5pt]{};
+        \node at (2,4)[circle, fill, red, inner sep=1.5pt]{};
+        \node at (4,2.5)[circle, fill, red, inner sep=1.5pt]{};
+    \end{tikzpicture}
+    \caption{Soft-margin SVM erlaubt auch Punkte auf der falschen Seite der Hyperebene}
+    \label{fig:soft_svm}
+\end{figure}
+
+
+\newpage
+
+\section{Support Vector Machine als empirische Risikominimierer}
+    Wir haben nun die geometrische Interpretation der Support Vector Machine kennengelernt. Es gibt jedoch eine weitere Möglichkeit die SVM zu interpretieren. Der Zugang über die statistische Lerntheorie führt zu einer äquivalenten Formulierung.
+\subsection{Einführung in die empirische Risikominimierung}
+    Um das Risiko einer Entscheidungsfunktion zu messen benötigen wir eine Verlustfunktion.
+
+    \begin{dfn}[Verlustfunktion]
+        Eine Verlustfunktion ist eine Abbildung \mbox{$L: \mathcal{H} \times \mathcal{X} \times \mathcal{Y} \to \mathbb{R}_{+}$}, wobei $\mathcal{H}$ die Menge aller Entscheidungsfunktionen ist.
+    \end{dfn}
+
+    Eine Verlustfunktion soll messen wie richtig oder falsch eine Entscheidungsfunktion $f \in \mathcal{H}$ einen Punkt $x \in \mathcal{X}$ mit zugehöriger Klasse $y \in \mathcal{Y}$ klassifiziert.
+    Typische Beispiele für Verlustfunktionen sind die \textbf{0-1-Verlustfunktion} $L(f,x,y) = \mathbbm{1}_{\{f(x) \neq y\}}$, welche allen Misklassifikationen den Fehler-Wert $1$ zuweist, oder der \textbf{quadratische Verlust} $L(f,x,y)=(f(x)-y)^2$, welcher größer ist, je weiter die Entscheidung $f(x) \in \mathcal{Y}$ von der tatsächlichen Klasse $y \in \mathcal{Y}$ abweicht.
+
+    \begin{dfn}[Risiko]
+        Das Risiko einer Entscheidungsfunktion $f \in \mathcal{H}$ ist definiert als 
+        \begin{equation*}
+            \mathcal{R}_{L} \coloneqq \mathbb{E}_{(X,Y)\sim \mathcal{D}}[L(f,X,Y)].
+        \end{equation*}
+        Hierbei bezeichnen $X$ und $Y$ Zufallsvariablen mit der zugrundeliegenden Wahrscheinlichkeitsverteilung $\mathcal{D}$ und $\mathbb{E}$ den Erwartungswert.
+    \end{dfn}
+    
+    Im folgenden gilt die Konvention, dass falls der Subindex nicht genannt wird, so meint $\mathcal{R} := \mathcal{R}_{L}$
+    wobei $L$ in diesem Fall der 0-1-Verlust ist.
+    
+    \vspace{5mm}
+    
+    Ziel ist es $f$ so zu wählen, dass das Risiko, also der erwartete Verlust möglichst gering wird. 
+    
+    \begin{dfn}[Bayes Risiko] \label{dfn:bayes_risk}
+        Gegeben einer Verteilung $\mathcal{D}$ auf $\mathcal{X} \times \mathcal{Y}$, so ist das \textbf{Bayes Risiko} (bezüglich einer Verlustfunktion $L$) definiert als das Infimum der Risiken aller messbaren Funktionen $h: \mathcal{X} \to \mathcal{Y}$
+        \[
+            \mathcal{R}_{L}^{*} = \inf_{h: \mathcal{X} \to \mathcal{Y}} \mathcal{R}_{L}(h).
+        \]
+        Eine Funktion $h$ mit $\mathcal{R}_{L}(h) = \mathcal{R}_{L}^{*}$ heißt \textbf{Bayes Klassifikator}.
+    \end{dfn}
+    
+    Nach Funktionen zu suchen, dessen Risiko möglichst gering ist, ist in gewisser Weise natürlich.
+    Die Verteilung welcher die Datenpunkte und ihre Klassen unterliegen, ist jedoch unbekannt. Anstatt des Risikos nutzen wir deshalb das empirische Risiko.
+
+    \begin{dfn}[Empirisches Risiko]
+        Das empirische Risiko einer Entscheidungsfunktion $f \in \mathcal{H}$ ist definiert als
+        \begin{equation*}
+            \mathcal{R}_{m,L}(f) = \frac{1}{m} \sum_{i=1}^{m}L(f,x_{i},y_{i})
+        \end{equation*}
+        für eine Menge von Trainingsbeispielen $\{x_1, ..., x_m\} \subseteq \mathcal{X}$ und zugehörigen Klassen $\{y_1, ..., y_m\}$ mit $y_i \in \mathcal{Y}$, für alle $i \in \{1, ..., m\}$.
+    \end{dfn}
+    
+    Nach dem Gesetz der großen Zahlen aus der Stochastik konvergiert das empirische Risiko gegen das tatsächliche Risiko. \\
+    Allerdings haben Funktionen mit niedrigem empirischen Risiko nicht automatisch auch ein geringes Risiko. Definieren wir zum Beispiel eine Funktion f mit $D = \{(x_{1},y_{1}),...,(x_{m},y_{m})\} \subseteq (\mathcal{X} \times \mathcal{Y})^{m}$, $m \in \mathbb{N}$, durch
+    \[
+        f(x) = \left\{
+        \begin{array}{ll}
+             y_{i} & \, \textrm{, falls } (x_{i}, y_{i}) \in D \\
+             0 & \, \textrm{, sonst.}\\
+         \end{array}
+        \right.
+    \]
+    So gilt für das empirische Risko $\mathcal{R}_{m, L}(f) = 0$ für die Menge $D$. $f$ klasifiziert alle Datenpunkte aus $D$ korrekt.
+    Für $(x,y) \in (\mathcal{X} \times \mathcal{Y}) \setminus D $ macht $f$ jedoch Vorhersagen unabhängig von der Verteilung.
+    Warum die Support Vector Machine dennoch mit hoher Wahrscheinlichkeit gute Vorhersagen liefert wird in Kapitel \ref{chapter:statistics} bearbeitet.
+    
+    \subsection{Interpretation als empirische Risikominimierer}
+    Wir wollen nun die Äquivalenz des geometrischen Minimierungsproblems (\ref{eqn:soft_margin_min}) und einer Formulierung als empirische Risikominimierer zeigen. Dazu definieren wir uns eine passende Verlustfunktion.
+    
+
+    \begin{dfn}[Hinge Loss]\label{hinge_loss_dfn}
+        Die Hinge Loss Verlustfunktion ist definiert als
+        \begin{equation*}
+        \begin{split}
+            L_{hinge}(f,x,y):\mathcal{H} \times \mathcal{X} \times \mathcal{Y} & \to \mathbb{R}_{+},\\ (f,x,y) & \mapsto (1 - y f(x))_{+}:=\max\{0,1 - y f(x)\}.
+        \end{split}
+        \end{equation*}
+    \end{dfn}
+    
+    
+    % Plot des Hinge Loss
+    \begin{figure}[h]
+    \centering
+    \begin{tikzpicture}[
+      declare function={
+        func(\x)= (\x < 1) * (1 - \x)   +
+                  (\x >= 1) * (0)
+       ;
+      }
+    ]
+    \begin{axis}[
+      axis equal,
+      axis x line=middle, axis y line=middle,
+      ymin=0, ymax=2, ytick={0,...,2}, ylabel=$1-y f(x)$,
+      xmin=-2, xmax=2, xtick={-2,...,2}, xlabel=$y f(x)$,
+      domain=-3:3,samples=101, % added
+    ]
+        \addplot [blue,thick] {func(x)};
+        
+    \end{axis}
+    \end{tikzpicture} 
+    \caption{Plot von $L_{hinge}(f,x,y)$}
+    \label{fig:hinge_loss}
+    \end{figure}
+    
+    \vspace{10mm}
+    
+Betrachten wir nun erneut das Optimierungsproblem (\ref{eqn:soft_margin_min}).
+\begin{equation*}
+\begin{split}
+    & \min_{w, \xi \in \mathbb{R}^d, b \in \mathbb{R}} \|w\|_{2}^{2} + \frac{C}{m} \sum_{i = 1}^{m} \xi_i \\
+    & \textrm{so dass } y_i(w^T x_i + b ) - 1 + \xi_i \geq 0, \, \xi_i \geq 0 \textrm{ für alle } i \in \{1,...,m\}.
+\end{split}
+\end{equation*}
+Wir lösen die Nebenbedingungen für alle $i \in \{1,...,m\}$ nach $\xi_i$ auf und erhalten
+\begin{equation*}
+\begin{split}
+    1 - ( y_i (w^T x_i + b)) & \leq \xi_i \\
+    0 & \leq \xi_i.
+\end{split}
+\end{equation*}
+Es folgt also, dass $\sum_{i=1}^{m} \xi_i$ minimal wird, wenn 
+\[
+    \xi_i = \max \{0, 1 - ( y_i (w^T x_i + b))\}.
+\]
+Das Minimierungsproblem (\ref{eqn:soft_margin_min}) lässt sich also äquivalent beschreiben als
+\begin{equation*}
+    \min_{w \in \mathbb{R}^d, b \in \mathbb{R}} \|w\|_{2}^{2} + \frac{C}{m} \sum_{i=1}^{m}\max\{0,1-(y_i(w^T x_i + b))\}.
+\end{equation*}
+Mit $\lambda := \frac{1}{C}$ schreiben wir das Minimierungsproblem um, zu
+\begin{equation*}
+    \min_{w \in \mathbb{R}^d, b \in \mathbb{R}} \lambda \|w\|_{2}^{2} + \frac{1}{m} \sum_{i=1}^{m}\max\{0,1-(y_i(w^T x_i + b))\}.
+\end{equation*}
+Definiere $\mathcal{H} = \{h: \mathbb{R}^d \to \mathbb{R} \mid h(x) = w^T x + b, w \in \mathbb{R}^d, b \in \mathbb{R}\}$.
+\begin{equation*}
+    \min_{h \in \mathcal{H}} \lambda \|w\|_{2}^{2} + \frac{1}{m} \sum_{i = 1}^{m} \max \{0, 1-(y_i h_{w,b}(x_i))\}.
+\end{equation*}
+Wir erkennen hier die Hinge Loss Verlustfunktion aus Definition~\ref{hinge_loss_dfn} wieder und erhalten somit das empirische Risiko.
+\begin{equation} \label{eqn:erm_linear}
+    \min_{h \in \mathcal{H}} \lambda \|w\|_{2}^{2} +\mathcal{R}_{n,L_{hinge}}(h).
+\end{equation}
+
+Das Optimierungsproblem ist nun eines der empirischen Risikominimierung welches durch die Norm von $w$ regularisiert wird. Die gefundene SVM-Klassifizierungsfunktion ist die gleiche wie die durch (\ref{eqn:soft_margin_min}) gefundene. Die Äquivalenz der Minimierungsprobleme ist gezeigt.
+Das vorliegende Minimierungsproblem lässt sich durch das Verfahren der Lagrange-Multiplikatoren lösen.
+Entschcheidend ist hier, dass in der Lösung die Datenpunkte $\{x_{1},...,x_{m}\} \subseteq \mathcal{X}$ nur in Form von Skalarprodukten $\langle x_{i}, x_{j} \rangle_{\mathbb{R}^{n}}$, $i,j \in \{1,...,m\}$ auftreten (\cite{understanding}, Kapitel 15.2). 
+Somit können wir im nächsten Kapitel den sogenannten Kernel Trick anwenden um auch nicht lineare Entscheidungsfunktionen zuzulassen.
+
+
+\newpage
+
+\section{Kernel Trick}\label{chapter_kernel}
+Wir haben bisher lineare Entscheidungsfunktionen betrachtet. Nun wollen wir auch nicht lineare Entscheidungsfunktionen zulassen. Wir tun dies indem wir den sogenannten Kernel Trick anwenden. Die Idee ist, dass wir die Daten in einen höher-dimensionalen Raum mit einem Skalarprodukt abbilden und in diesem eine Entscheidungsfunktion ermitteln.
+
+    \begin{dfn}[Kernel, Feature Map, Feature Space]
+        Sei $\mathcal{X} \neq \varnothing$ eine nicht leere Menge.
+        Eine Funktion $k: \mathcal{X} \times \mathcal{X} \to \mathbb{R}$ heißt \textbf{Kernel}, falls ein $\mathbb{R}$-Hilbertraum $H$ und eine Abbildung $\Phi: \mathcal{X} \to H$ so existieren, dass für alle $x, x' \in \mathcal{X}$ gilt
+        \[
+            k(x,x') = \langle \Phi(x), \Phi(x') \rangle_{H}.
+        \]
+        Wir nennen $\Phi$ \textbf{Feature Map} (dt. Merkmalsabbildung) und $H$ \textbf{Feature Space} (dt. Merkmalsraum) von $k$.
+    \end{dfn}
+    
+    \begin{dfn}[positive Definitheit, Symmetrie]
+        Eine Funktion $k: \mathcal{X} \times \mathcal{X}$ heißt \textbf{positiv definit}, falls für alle $m \in \mathbb{N}$, $\alpha_1, ..., \alpha_m \in \mathbb{R}$ und alle $x_1, ..., x_m \in \mathcal{X}$ gilt
+        \begin{equation}\label{positiv_definit}
+            \sum_{i=1}^{m} \sum_{j=1}^{m} \alpha_i \alpha_j k(x_j,x_i) \geq 0.
+        \end{equation}
+        Darüber hinaus heißt k \textbf{strikt positiv definit}, falls für paarweise verschiedene $x_1, ..., x_m \in \mathcal{X}$ Gleichheit in~\ref{positiv_definit} nur für $\alpha_1=...=\alpha_m=0$ gilt. \\
+        Abschließend heißt $k$ \textbf{symmetrisch}, falls $k(x,x')=k(x',x)$ für alle $x,x' \in \mathcal{X}$.
+    \end{dfn}
+    Für feste $x_1, ..., x_m \in \mathcal{X}$ heißt die $m \times m$ Matrix
+    \[
+        K := (k(x_j,x_i))_{i,j = 1,..., m}.
+    \]
+    \textbf{Gram Matrix}. \\
+    
+    \begin{bem} \label{pos_def}
+        Wir bemerken, dass (\ref{positiv_definit}) äquivalent dazu ist, dass die Gram Matrix positiv semi-definit ist.
+    \end{bem}
+    
+    % Beispiele für Kernels?
+    % Rechenregeln für Kernels?
+    
+    \begin{dfn}[Hilbertraum mit reproduzierendem Kern, Reproducing kernel hilbert space] \label{RKHS}
+        Sei $\mathcal{X} \neq \varnothing$ und $(\mathcal{H}, \langle \cdot, \cdot \rangle_{\mathcal{H}})$ ein Hilbertraum bestehend aus Funktionen die von $\mathcal{X}$ nach $\mathbb{R}$ abbilden. \\
+        Eine Funktion $k: \mathcal{X} \times \mathcal{X} \to \mathbb{R}$ heißt \textbf{reproduzierender Kern (von $\mathcal{H}$)}, falls
+        \begin{itemize}
+            \item[i)]  $k(\cdot, x) \in \mathcal{H}$ für alle $x \in \mathcal{X}$,
+            \item[ii)] für alle $x \in \mathcal{X}$ und $f \in \mathcal{H}$ gilt $f(x) = \langle f, k(x, \cdot) \rangle_{\mathcal{H}}$. (Reproduktionseigenschaft)
+        \end{itemize}
+        $\mathcal{H}$ heißt dann \textbf{Hilbertraum mit reproduzierendem Kern} (engl.: reproducing kernel hilbert space) im folgenden genannt \textbf{RKHS}.
+    \end{dfn}
+
+\subsection{Charakterisierung von Kerneln}
+    Es stellt sich nun die Frage, welche Funktionen Kernel sind. Darüber gibt der Satz in folgendem Abschnitt Aufschluss.
+    
+    
+    \begin{lemma}[Cauchy-Schwarz-Ungleichung für positive symmetrische Bilinearformen] \label{lemma:cs_blinearform}
+        Sei $E$ ein $\mathbb{R}$-Vektorraum und $\langle \cdot, \cdot \rangle: E \to \mathbb{R}$ eine positive, symmetrische Bilinearform, dann gilt
+        \[
+            \abs{\langle x, y \rangle}^{2} \leq \langle x, x \rangle \langle y, y \rangle.
+        \]
+    \end{lemma}
+    \begin{proof}
+        Seien $x,y \in E$. Wir bemerken, dass
+        \[
+            0 \leq \langle x + \alpha y, x + \alpha y \rangle 
+        \]
+        für alle $\alpha \in \mathbb{R}$. \\
+        \underline{Fall 1:} $\langle x, x \rangle = \langle y, y \rangle = 0$ \\
+        Es ist zu zeigen, dass $\abs{\langle x, y \rangle}^{2}$ \\
+        Betrachte $\alpha = 1$:
+        \[
+            0 \leq \langle x + y, x + y \rangle = \underbrace{\langle x, x \rangle}_{= 0} + 2 \langle x, y \rangle + \underbrace{\langle y, y \rangle}_{= 0} = 2 \langle x, y \rangle.
+        \]
+        Betrachte $\alpha = -1$:
+        \[
+            0 \leq \langle x - y, x - y \rangle = \underbrace{\langle x, x \rangle}_{= 0} - 2 \langle x, y \rangle + \underbrace{\langle y, y \rangle}_{= 0} = - 2 \langle x, y \rangle.
+        \]
+        Insbesondere gilt $0 \leq \langle x, y \rangle$ und $0 \leq -\langle x, y \rangle$ woraus folgt, dass $\langle x, y \rangle = 0$ und insbesondere $\abs{\langle x, y \rangle}^{2} = 0$. \\
+        \underline{Fall 2:} $\langle y, y \rangle \neq 0$ \\
+        Betrachte $\alpha := - \frac{\langle x, y \rangle}{\langle y, y \rangle}$ \\
+        \[
+            0 
+            \leq
+            \langle x + \alpha y, x + \alpha y \rangle 
+            =
+            \langle x - \frac{\langle x, y \rangle}{\langle y, y \rangle} y, x - \frac{\langle x, y \rangle}{\langle y, y \rangle} y \rangle
+            =
+            \langle x, x \rangle - 2\frac{\langle x, y \rangle^{2}}{\langle y, y\rangle} + \frac{\langle x, y \rangle^{2}}{\langle y, y \rangle}
+            =
+            \langle x, x \rangle - \frac{\langle x, y \rangle^{2}}{\langle y, y \rangle}.
+        \]
+        Also folgt
+        \[
+            \langle x, y \rangle^{2} \leq \langle x, x \rangle \langle y, y \rangle. \qedhere
+        \]
+    \end{proof}
+    
+    Nun folgt das Hauptresultat dieses Kapitels.
+    
+    \begin{thm}[Symmetrisch, positiv semi-definite Funktionen sind Kernel (Steinwart und Christmann, 2008, \cite{svm} Thm. 4.16)] \label{mercer}
+        Eine Funktion ${k: \mathcal{X} \times \mathcal{X} \to \mathbb{R}}$ ist Kernel genau dann, wenn $k$ symmetrisch und positiv semi-definit ist.
+    \end{thm}
+    \begin{proof}
+        Sei $k$ zunächst ein Kernel mit Feature Map $\Phi: \mathcal{X} \to H$ und Feature Space $H$. Dann ist $k$ symmetrisch, da das Skalarprodukt in $H$ symmetrisch ist.
+        \[
+            k(x,y) = \langle \Phi(x), \Phi(y) \rangle = \langle \Phi(y), \Phi(x) \rangle = k(y,x) \text{ für } x,y \in \mathcal{X}.
+        \]
+        Außerdem ist $k$ positiv definit, denn für $n \in \mathbb{N}, \alpha_1,...,\alpha_n \in \mathbb{R}, x_1,...,x_n \in \mathcal{X}$ gilt
+        \[
+            \sum_{i=1}^{n} \sum_{j=1}^{n} \alpha_{i} \alpha_{j} k(x_i,x_j) 
+            = \sum_{i=1}^{n} \sum_{j=1}^{n} \alpha_{i} \alpha_{j} \langle \Phi(x_i), \Phi(x_j) \rangle 
+            = \left\langle \sum_{i=1}^{n} \alpha_{i} \Phi(x_i), \sum_{j=1}^{n} \alpha_{j} \Phi(x_j) \right\rangle 
+            \geq 0.
+        \]
+        \\
+        Sei nun umgekehrt $k$ symmetrisch und positiv definit. Wir definieren zunächst
+        \[
+            H_{\text{pre}} := \left\{\sum_{i=1}^{n} \alpha_{i} k(\cdot, x_{i}) \mathrel{\Big|} n \in \mathbb{N}, \alpha_{1},...,\alpha_{n} \in \mathbb{R}, x_{1},...,x_{n} \in \mathcal{X} \right\}.
+        \]
+        Dies ist ein Vektorraum. Für $f := \sum_{i=1}^{n} \alpha_{i} k(\cdot,x_{i}) \in H_{\text{pre}}$ und $g := \sum_{j=1}^{m} \beta_{j} k(\cdot, x_{j}') \in H_{\text{pre}}$ definieren wir
+        \[
+            \langle f, g \rangle_{H_{\text{pre}}} := \sum_{i=1}^{n} \sum_{j=1}^{m} \alpha_{i} \beta_{j} k(x_{i},x_{j}').
+        \]
+        Wir bemerken, dass diese Definition unabhängig von der Darstellung von $f$ ist, denn
+        \[
+            \langle f, g \rangle_{H_{\text{pre}}} 
+            = \sum_{i=1}^{n} \sum_{j=1}^{m} \alpha_{i} \beta_{j} k(x_{i},x_{j}')
+            \overset{\text{$k$ symmetrisch}}{=} \sum_{j=1}^{m} \beta_{j} \sum_{i=1}^{n} \alpha_{i} k(x_{j}',x_{i})
+            = \sum_{j=1}^{m} \beta_{j} f(x_{j}').
+        \]
+        Außerdem ist $\langle \cdot, \cdot \rangle_{H_{\text{pre}}}$ auch von der Repräsentation des zweiten Arguments unabhängig
+        \[
+            \langle f, g \rangle_{H_{\text{pre}}} 
+            = \sum_{i=1}^{n} \sum_{j=1}^{m} \alpha_{i} \beta_{j} k(x_{i},x_{j}')
+            = \sum_{i=1}^{n} \alpha_{i} \sum_{j=1}^{m} \beta_{j} k(x_{i},x_{j}')
+            = \sum_{i=1}^{n} \alpha_{i} g(x_{i}).
+        \]
+        Um zu zeigen, dass $\langle \cdot, \cdot \rangle_{H_{\text{pre}}}$ tatsächlich ein Skalarprodukt definiert müssen wir drei Eigenschaften zeigen. \\
+        (i) \underline{Symmetrie:}
+        \[
+            \langle f, g \rangle_{H_{\text{pre}}} 
+            = \sum_{i=1}^{n} \sum_{j=1}^{m} \alpha_{i} \beta_{j} k(x_{i},x_{j}')
+            \overset{\text{$k$ symmetrisch}}{=} \sum_{j=1}^{m}  \sum_{i=1}^{n} \beta_{j} \alpha_{i} k(x_{j}',x_{i})
+            = \langle g, f \rangle_{H_{\text{pre}}}.
+        \]
+        (ii) \underline{Bilinearität:}
+        Seien $f_{1},f_{2} \in H_{\text{pre}}$. Wie bereits gesehen, gilt
+        \[
+            \langle f, g \rangle_{H_{\text{pre}}}
+            = \sum_{j=1}^{m} \beta_{j} f(x_{j}').
+        \]
+        Also
+        \[
+        \begin{split}
+            \langle f_{1} + f_{2}, g \rangle_{H_{\text{pre}}}
+            & = \sum_{j=1}^{m} \beta_{j} (f_{1}+f_{2})(x_{j}')
+            = \sum_{j=1}^{m} \beta_{j} (f_{1}(x_{j}')+f_{2}(x_{j}')) \\
+            & = \sum_{j=1}^{m} \beta_{j} f_{1}(x_{j}') + \sum_{j=1}^{m} \beta_{j} f_{2}(x_{j}')
+            = \langle f_{1}, g \rangle_{H_{\text{pre}}} + \langle f_{2}, g \rangle_{H_{\text{pre}}}.
+        \end{split}
+        \]
+        Ebenso gilt für $\lambda \in \mathbb{R}$, dass
+        \[
+            \lambda \langle f, g \rangle_{H_{\text{pre}}}
+            = \lambda \sum_{j=1}^{m} \beta_{j} f(x_{j}')
+            = \sum_{j=1}^{m} \beta_{j} (\lambda f(x_{j}'))
+            =  \langle \lambda f, g \rangle_{H_{\text{pre}}}.
+        \]
+        (iii) \underline{Positive Definitheit:}
+        Aus der positiven Definitheit von $k$ folgt
+        \[
+            \langle f, f \rangle_{H_{\text{pre}}}
+            = \sum_{i,j = 1}^{n} \alpha_{i} \alpha_{j} k(x_{i},x_{j})
+            = \sum_{i,j = 1}^{n} \alpha_{i} \alpha_{j} (K)_{i j}
+            \geq 0.
+        \]
+        Also ist $\langle \cdot, \cdot \rangle_{H_{\text{pre}}}$ positiv semidefinit. \\
+        Im vorherigen Lemma \ref{lemma:cs_blinearform} haben wir gesehen, dass $\langle \cdot, \cdot \rangle_{H_{\text{pre}}}$ die Cauchy-Schwarz-Ungleichunge erfüllt, das heißt
+        \[
+            | \langle f, g \rangle_{H_{\text{pre}}} |^{2}
+            \leq \langle f, f \rangle_{H_{\text{pre}}} \langle g, g \rangle_{H_{\text{pre}}}
+            \text{ für alle $f,g \in H_{\text{pre}}$}.
+        \]
+        Sei nun $f := \sum_{i=1}^{n} \alpha_{i} k(\cdot, x_{i}) \in H_{\text{pre}}$ 
+        mit  $\langle f, f \rangle_{H_{\text{pre}}} = 0$. Dann gilt für alle $x \in \mathcal{X}$
+        \[
+            | f(x) |^{2}
+            = \abs{\sum_{i=1}^{n} \alpha_{i} k(x, x_{i}) }^{2}
+            = \left| \langle f, k(\cdot, x) \rangle_{H_{\text{pre}}} \right|^{2}
+            \leq \underbrace{\langle f, f \rangle_{H_{\text{pre}}}}_{=0} \langle k(\cdot, x), k(\cdot, x) \rangle_{H_{\text{pre}}} = 0.
+        \]
+        Also ist $f \equiv 0$ die Nullfunktion, folglich ist $\langle \cdot, \cdot \rangle_{H_{\text{pre}}}$ strikt postiv definit und definiert ein Skalarprodukt auf $H_{\text{pre}}$. \\
+        $\langle f, k(\cdot, x) \rangle_{H_{\text{pre}}} = \sum_{i=1}^{n} \alpha_{i} k(x, x_i) = f(x)$ ist die in Definition ~\ref{RKHS} genannte Reproduktionseigenschaft eines Hilbertraums mit reproduzierendem Kern. Es gilt außerdem die Eigenschaft i), dass $k(\cdot, c) \in H_{\text{pre}}$ nach der Definition von $H_{\text{pre}}$.
+        \\
+        Sei nun $H$ die Vervollständigung von $H_{\text{pre}}$, d.h.
+        \[ 
+            H := \overline{H_{\text{pre}}}
+            = \overline{\left\{ \sum_{i=1}^{n} \alpha_{i} k(\cdot, x_{i}) \mathrel{\Big|} n \in \mathbb{N}, \alpha_{1},...,\alpha_{n} \in \mathbb{R}, x_{1},...,x_{n}\right\}}
+        \]
+        sodass H alle Grenzwerte von Folgen enthält die in der Norm $\|f\|_{H_{\text{pre}}} = \langle f, f \rangle_{H_{\text{pre}}}^{1/2}$ konvergieren. Sei $I: H_{\text{pre}} \to H$ die isometrische Einbettung, dann ist $H$ ein Hilbertraum. Darüber hinaus sogar Hilbertraum mit reproduzierendem Kern, wie wir oben bereits bemerkt haben. Es gilt außerdem
+        \[
+            \langle I k(\cdot, x), I k(\cdot, x') \rangle_{H} 
+            = \langle k(\cdot,x), k(\cdot,x') \rangle_{H_{\text{pre}}} 
+            = k(x,x')
+        \]
+        für alle $x,x' \in \mathcal{X}$. Das heißt $x \mapsto I k(\cdot,x), ~ x\in \mathcal{X}$ definiert eine Feature Map von $k$. 
+    \end{proof}
+    
+    \subsection{Rechenregeln und Beispiele für Kernel}
+    Im folgenden werden einige Rechenregeln für Kernel mithilfe des vorherigen Satzes gezeigt. Diese Rechenregeln liefern konkrete Beispiele für Kernelfunktionen. Die Folgenden Sätze folgen den Beweisen aus \textit{Foundations of Machine Learning} \cite{foundations}. Insbesondere Lemma 6.9 und Theorem 6.10 werden ausgeführt und erweitert.
+    
+    \begin{thm}[Kernel sind abgeschlossen unter Summation] \label{thm:kernel_sum}
+        Seien $k, k'$ Kernel, dann ist auch $k + k'$ ein Kernel.
+    \end{thm}
+    \begin{proof}
+        Seien $K, K' \in \mathbb{R}^{m \times m}$ die zu $k$ und $k'$ gehörigen Gram-Matrizen. Nach Bemerkung \ref{pos_def} sind $K$ und $K'$ positiv definit.
+        Für beliebiges $c \in \mathbb{R}^{m}$ gilt dann
+        \[
+            c^{T} (K + K') c
+            =
+            \underbrace{c^{T} K c}_{\geq 0} + \underbrace{c^{T} K' c}_{\geq 0} \geq 0.
+        \]
+        Außerdem gilt
+        \[
+        (k + k')(x,x')
+        =
+        k(x, x') + k'(x,x')
+        =
+        k(x', x) + k(x', x)
+        =
+        (k + k')(x',x)
+        \ \text{ für alle $x,x' \in \mathcal{X}$}.
+        \]
+        Also ist $k + k'$ symmetrisch und positiv definit und somit nach Satz \ref{mercer} ein Kernel.
+    \end{proof}
+    
+    \begin{dfn} \label{dfn:polynomial_kernel}
+        Für $c >0$ und $n \in \mathbb{N}$ heißt die Funktion
+        \[
+            k: \mathcal{X} \times \mathcal{X}, k(x,x') \mapsto (\langle x, x' \rangle_{\mathbb{R}^{m}} + c)^{n}
+        \]
+        \textbf{Polynomieller Kernel vom Grad n}. Mit Satz \ref{thm:kernel_sum} ist $k$ ein Kernel.
+    \end{dfn}
+    
+    
+    \begin{thm}[Kernel sind abgeschlossen unter Produktbildung] \label{kernel_product}
+        Seien $k, k'$ Kernel, dann ist auch das Produkt $k k'$ ein Kernel.
+    \end{thm}
+    \begin{proof}
+        Seien $K, K' \in \mathbb{R}^{m \times m}$ die zu $k$ und $k'$ gehörigen Gram-Matrizen. Nach Bemerkung \ref{pos_def} sind $K$ und $K'$ positiv definit. Für die symmetrische und positiv definite Matrix existiert nach der Cholesky-Zerlegung eine Matrix $M \in \mathbb{R}^{m \times m}$ mit $K = M M^{T}$. Die Kernel Matrix assoziiert mit $K K'$ ist $(K_{ij} K_{ij}')$ Für jedes $c \in \mathbb{R}^{m}$ gilt
+        \[
+            \begin{split}
+            \sum_{i,j = 1}^{m} c_{i} c_{j} (K_{ij} K_{ij}')
+            &=
+            \sum_{i,j = 1}^{m} c_{i} c_{j} ([\sum_{k = 1}^{m} M_{ij} M_{jk}] K_{ij}') \\
+            &=
+            \sum_{k = 1}^{m}[\sum_{i,j = 1}^{m} c_{i} c_{j} M_{ik} M_{jk} K_{ij}'] \\
+            &=
+            \sum_{k = 1}^{m}z_{k}^{T} K' z_{k}
+            \geq
+            0
+            \end{split}
+        \]
+        mit $z_k = (c_{1}M_{1k},...,c_{m}M_{mk})^{T} \in \mathbb{R}^{m}$. Außerdem gilt
+        \[
+            (kk')(x,x')
+            =
+            k(x, x') k'(x,x')
+            =
+            k(x', x) k(x', x)
+            =
+            (k k')(x',x)
+            \ \text{ für alle $x,x' \in \mathcal{X}$}.
+        \]
+        Also ist $k k'$ symmetrisch und positiv definit und somit nach \ref{mercer} ein Kernel.
+    \end{proof}
+    
+    \begin{thm} \label{kernel_limit}
+        Sei $(k_{n})_{n \in \mathbb{N}}$ eine Folge von Kerneln mit punktweisem Grenzwert $k$. Dann ist auch $k$ ein Kernel. 
+    \end{thm}
+    \begin{proof}
+        Sei $K$ die Gram-Matrix assoziiert mit $k$ und $K_{n}$ die Gram-Matrix von $k_{n}$ für alle $n \in \mathbb{N}$. Nach Bemerkung \ref{pos_def} gilt für alle $n \in \mathbb{N}$ und $c \in \mathbb{R}^{m}$
+        \[
+            c^{T} K_{n} c \geq 0.
+        \]
+        Also auch
+        \[
+            \lim_{n \to \infty} c^{T} K_{n} c = c^{T} K c \geq 0.
+        \]
+        Außerdem gilt
+        \[
+            k(x,x')
+            =
+            \lim_{n \to \infty} k_{n}(x, x')
+            =
+            \lim_{n \to \infty} k_{n}(x',x)
+            =
+            k(x',x)
+            \ \text{ für alle $x,x' \in \mathcal{X}$}.
+        \]
+        Also ist $k$ symmetrisch und positiv definit und somit nach \ref{pos_def} ein gültiger Kernel.
+    \end{proof}
+    
+    \newpage
+    \begin{cor} \label{kernel_power_series}
+        Sei $k$ ein Kernel mit $\abs{k(x, x')} \leq \rho$ für alle $x,x' \in \mathcal{X}$ und $f(x) := \sum_{i = 0}^{\infty} a_{i} x^{i}, \ a_{i} \geq 0$ eine Potenzreihe mit Konvergenzradius $\rho > 0$. Dann ist auch die Komposition $f \circ k$ ein Kernel.
+    \end{cor}
+    \begin{proof}
+        Für jedes $n \in \mathbb{N}$ ist nach \ref{kernel_product} auch $k^{n}$ ein Kernel. Da $a_{n} \geq 0$ ist auch $a_n k^{n}$ ein Kernel für jedes $n \in \mathbb{N}$. Mit \ref{thm:kernel_sum} ist auch $\sum_{i = 0}^{n} a_{i} k^{i}$ ein Kernel für alle $n \in \mathbb{N}$. Durch Grenzwertbildung $n \to \infty$ ist nach \ref{kernel_limit} auch $\sum_{i = 0}^{\infty} a_{i} k^{i}$ ein Kernel.
+    \end{proof}
+
+    \begin{cor}
+        Für alle $\sigma^{2} > 0$ ist $k:(x,x') \mapsto exp(\frac{\langle x, x' \rangle_{\mathbb{R}^{m}}}{\sigma^{2}})$ ein Kernel.
+    \end{cor}
+    \begin{proof}
+        Dies folgt mit Korollar \ref{kernel_power_series} direkt aus der Darstellung der Exponentialfunktion als Potenzreihe mit Konvergenzradius $\rho = \infty$ und der Tatsache, dass $\langle x, x' \rangle_{\mathbb{R}^{m}}$ ein Kernel mit Feature Map $\phi(x) = x$ ist.
+    \end{proof}
+    
+    \begin{lemma}[Cauchy-Schwarz-Ungleichung für Kernel]\label{cs_kernel}
+        Sei $k$ ein Kernel. Dann gilt für alle $x, x' \in \mathcal{X}$
+        \[
+            k(x, x')^{2} \leq k(x,x) k(x',x').
+        \]
+    \end{lemma}
+    \begin{proof}
+        Seien $x,x' \in \mathcal{X}$. Betrachte die Gram-Matrix 
+        $K = \big(\begin{smallmatrix}
+            k(x,x) & k(x,x') \\
+            k(x',x) & k(x',x')
+        \end{smallmatrix}\big)$
+        bezüglich dieser Elemente. Nach Bemerkung \ref{pos_def} ist $K$ symmetrisch und positiv definit. Insbesondere ist das Produkt der Eigenwerte, also insbesondere $\det(K) \geq 0$. Durch die Symmetrie $k(x, x') = k(x', x)$ gilt
+        \[
+            \det(K) = k(x,x) k(x',x') - k(x,x')^{2} \geq 0
+        \]
+    \end{proof}
+    
+    \begin{lemma}
+        Sei $k$ ein Kernel mit Feature Map $\Phi$ und Feature Space $H$. Dann ist der \textbf{normalisierte Kernel} $k'$ definiert durch
+        \[
+            k'(x,x') = \left\{
+            \begin{array}{ll}
+                 0 & k(x,x) = 0 \vee k(x',x') = 0  \\
+                 \frac{k(x,x')}{\sqrt{k(x,x) k(x',x')}} & \, \textrm{sonst} \\ 
+            \end{array}
+            \right.
+        \]
+        ebenfalls ein Kernel.
+    \end{lemma}
+    \begin{proof}
+        Seien $\{x_1,...,x_m\} \subseteq \mathcal{X}$ und $c \in \mathbb{R}^{m}$ beliebig. Wir zeigen, dass die Summe $\sum_{i,j = 1}^{m} c_{i} c_{j} k'(x_{i},x_{j})$ nicht negativ ist. Wegen der Cauchy-Schwarz Ungleichung für Kernel \ref{cs_kernel} gilt, falls $k(x_{i},x_{i}) = 0$, so $k(x_{i},x_{j}) = 0$. Also nach Definition auch $k'(x_{i},x_{j}) = 0$ für alle $j = 1,...,m$. Wir können also $k(x_{i},x_{i}) > 0$ annehmen für alle $i = 1,...,m$. Die Summe kann also umgeschrieben werden zu
+        \[
+            \begin{split}
+            \sum_{i,j = 1}^{m} c_{i} c_{j} k'(x_{i},x_{j})
+            &=            
+            \sum_{i,j = 1}^{m} \frac{c_{i} c_{j} k(x_{i},x_{j})}{\sqrt{k(x_{i},x_{i}) k(x_{j},x_{j})}}
+            =
+            \sum_{i,j = 1}^{m} \frac{c_{i} c_{j} \langle \Phi(x_{i}, \Phi(x_{j}) \rangle_{H} }{\norm{\Phi(x_{i})}_{H} \norm{\Phi(x_{j})}_{H}} \\
+            &=
+            \left\langle \sum_{i = 1}^{m} \frac{c_{i} \Phi(x_{i})}{\norm{\Phi(x_{i})}_{H}}, \sum_{j = 1}^{m} \frac{c_{j} \Phi(x_{j})}{\norm{\Phi(x_{j})}_{H}} \right\rangle_{H}
+            =
+            \norm{\sum_{i = 1}^{m} \frac{c_{i} \Phi(x_{i})}{\norm{\Phi(x_{i})}_{H}}}_{H}^{2}.
+            \end{split}
+        \]
+        Darüber hinaus ist $k'$ symmetrisch, da $k$ symmetrisch ist. Also ist auch $k'$ ein Kernel.
+    \end{proof}
+    
+    \newpage
+    \begin{cor} \label{cor:gauß_kernel}
+        Für $\sigma^{2} > 0$ ist der \textbf{Gauss Kernel} $k(x,x') = \exp{(-\frac{\norm{x-x'}^{2}}{2 \sigma^{2}})}$ der normalisierte Kernel von $k'(x,x') = \exp{(\frac{\langle x, x' \rangle}{\sigma^{2}})}$.
+    \end{cor}
+    \begin{proof}
+        Seien $x,x' \in \mathcal{X}$.
+        \[
+            \begin{split}
+            \frac{k'(x,x')}{\sqrt{k'(x,x) k'(x',x')}}
+            &=
+            \frac{\exp{(\frac{\langle x, x' \rangle}{\sigma^{2}})}}{\exp{(\frac{\norm{x}^{2}}{2 \sigma^{2}}}) \exp{(\frac{\norm{x'}^{2}}{2 \sigma^{2}}})}
+            =
+            \exp{\left(\frac{\langle x, x' \rangle}{\sigma^{2}} - \frac{\norm{x}^{2}}{2 \sigma^{2}} - \frac{\norm{x'}^{2}}{2 \sigma^{2}}\right)}
+            =
+            \exp{\left(- \frac{\norm{x-x'}^{2}}{2 \sigma^{2}}\right)}.
+            \end{split}
+        \]
+    \end{proof}
+    
+\subsection{Repräsentations Theorem}
+    
+    Der folgende Abschnitt liefert eine Aussage darüber, dass die von der SVM gefundene Entscheidungsfunktion eine Linearkombination der Kernelfunktionen, ausgewertet in den Datenpunkten $x_{i}$ ist.
+    
+    \begin{thm}[Repräsentations Theorem (Trabs, 2019, \cite{trabs} Thm. 3.27)] \label{representer}
+        Sei $W$ ein RKHS in Bezug auf einen Kern $k:\mathcal{X} \times \mathcal{X} \to \mathbb{R}$. Weiterhin seien $\Phi: \mathbb{R} \to \mathbb{R}$ streng monoton steigend und $G: \mathbb{R}^n \to \mathbb{R}$ beliebig. Dann hat für beliebige $\{x_1, ..., x_n\} \in \mathcal{X}$, jede Lösung des Minimierungsproblems
+        \begin{equation}
+            G(f(x_1), ..., f(x_n)) + \Phi(\|f\|_{W}) \to \min_{f\in W}!
+        \end{equation}
+        die Form
+        \begin{equation*}
+            f(x) = \sum_{i=1}^{n} \alpha_i k(x_i, x)
+        \end{equation*}
+        mit $\alpha_i \in \mathbb{R}$, für $i = \{1,...,n\}$. \\
+    \end{thm}
+    \begin{proof}
+        Betrachte $V := \text{span}\{k(x_1,\cdot),...,k(x_n,\cdot)\}$ und das Orthogonale Komplement $V^\bot = \{u \in W \mid \langle u, v \rangle_W = 0 \text{, für alle } v \in V\}$. Für alle $u \in V^\bot$ gilt wegen der Reproduktionseigenschaft, dass
+        \begin{equation*}
+            u(x_i) = \langle u, \underbrace{k(x_i, \cdot)}_{\in V} \rangle_W = 0.
+        \end{equation*}
+        Daher erhalten wir für ein $f = u + v \in W$ mit $u \in V^\bot$ und $v \in V$, dass für alle $i = 1, ..., n$ gilt
+        \begin{equation*}
+            f(x_i) = v(x_i) + \underbrace{u(x_i)}_{=0} = v(x_i).
+        \end{equation*}
+        Außerdem gilt
+        \begin{equation*}
+        \begin{split}
+            \| f \|_{W}^2  
+                & = \langle f, f \rangle_W 
+                    = \langle u + v, u + v \rangle_W 
+                    = \langle u, u \rangle_W + 2 \underbrace{\langle u, v    \rangle_W}_{=0} + \langle v, v \rangle_W \\
+                & = \| u \|_W + \| v \|_W.
+        \end{split}
+        \end{equation*}
+        Daraus folgt direkt, dass $f = u + v \in W$ nur dann Minimierer ist, wenn $\| u \|_W = 0$, also insbesondere $u = 0$. \\
+        Also ist $f \in V$ und somit eine Linearkombination
+        \begin{equation*}
+            f = \sum_{i = 1}^{n} \alpha_i k(x_i, \cdot) \in V. \qedhere
+        \end{equation*}
+    \end{proof}
+    
+    Es folgt das Resultat, dass unter bestimmten Bedingungen Eindeutigkeit gilt.
+    
+    \begin{cor}[Eindeutigkeit (Trabs, 2019, \cite{trabs} Thm. 3.27)] \label{thm:eindeutigkeit}
+        Im Setting von Satz \ref{representer} gilt, falls $G$ konvex und nicht negativ ist, existiert für jedes $\lambda > 0$ eine eindeutige Lösung für das Minimierungsproblem
+        \begin{equation*}
+            K(f) := G(f(x_1),...,f(x_n)) + \lambda \| f \|_{W}^{2} \to \min_{f \in w}!
+        \end{equation*}
+    \end{cor}
+    \begin{proof}
+        Sei G konvex und nicht negativ, dann ist auch $K$
+        konvex und nicht negativ.
+        % \begin{equation*}
+        % \begin{split}
+        %     K(f + g) & = G((f+g)(x_1),...,(f+g)(x_n)) + \lambda \| f+g \|_{W}^{2} \\
+        %     & \leq G(f(x_1) + g(x_1),...,f(x_n)+g(x_n)) + \lambda ( \| f \|_W + \| g \| )^2
+        % \end{split}
+        % \end{equation*}
+        Für jedes $f \in W$ mit $\lambda \| f \|_{W}^{2} > G(0,...,0)$ gilt, dass $K(f) > K(0)$. Denn, sei $\lambda \| f \|_{W}^{2} > G(0,...,0)$, dann
+        \begin{equation*}
+        \begin{split}
+            K(f) & = \underbrace{G(f(x_1),...,f(x_n))}_{\geq 0} + \underbrace{\lambda \| f \|_{W}^{2}}_{> G(0,...,0)} \\
+            & > G(0,...,0) \\
+            & = K(0).
+        \end{split}
+        \end{equation*}
+        Falls $(f_n)_{n \in \mathbb{N}} \in W$ eine eine Funktionenfolge ist, mit $\lim_{n \to \infty} K(f_n) = \inf_{f \in W} K(f)$
+        Angenommen es existiert ein $n \in \mathbb{N}$, mit $\| f_n \|_{W} > (1/\sqrt{\lambda}) \sqrt{G(0,...,0)}$. Dann gilt mit obiger Überlegung, dass $K(f_n) > K(0)$. Definiere nun die Folge $(\tilde{f_n})_{n \in \mathbb{N}} \in W$ mit $\tilde{f_n} = \left \{ \begin{array}{ll}
+             0 &  \, \textrm{, falls } \| f_n \|_{W} > (1/\sqrt{\lambda}) \sqrt{G(0,...,0)} \\
+             f_n & \, \textrm{, sonst.} \\
+        \end{array}
+        \right.$
+        Nun gilt $K(f_n) \geq K(\tilde{f_n})$ für alle $n \in \mathbb{N}$.
+        Also auch $\lim_{n \to \infty} K(\tilde{f_n}) = \inf_{f \in W} K(f)$.
+        Also können wir für alle $n \in \mathbb{N}$ annehmen, dass $\| f_n \|_{W} \leq (1/\sqrt{\lambda}) \sqrt{G(0,...,0)}$. \\
+        Wenden wir nun die Zerlegung $f_n = u_n + v_n$ mit $u_n \in V^\bot$ und $v_n \in V$ aus Satz \ref{representer} an, so zeigt dies $\lim_{n \to \infty}K(v_n) = \min_{f \in W} K(f)$. \\
+        Wir bemerken, dass $v_n$ im kompakten endlichdimensionalen Ball ${\{ v \in V \mid \| v_n \|_W \leq (1/\sqrt{\lambda}) \sqrt{(G(0,...,0)}\}}$ liegt und jeder Häufungspunkt von $v_n$ das Minimierungsproblem löst. \\
+        Beweisen wir nun die Eindeutigkeit. \\
+        Angenommen es existieren zwei Lösungen $f_1, f_2 \in W$, dann erfüllt $g = \frac{1}{2} (f_1 + f_2)$
+        \begin{equation*}
+        \begin{split}
+            \| g \|_{W}^2 
+            & = \| \frac{1}{2} (f_1 + f_2) \|_{W}^2 
+            = \frac{1}{4} \| f_1 + f_2 \|_{W}^2
+            = \frac{1}{4} \langle f_1 + f_2, f_1 + f_2 \rangle_{W} \\
+            & = \frac{1}{4} (\langle f_1, f_1 \rangle_W + \langle f_2, f_2 \rangle_W + 2 \langle f_1, f_2 \rangle_W ) \\
+            & = \frac{1}{4}(2 \langle f_1, f_1 \rangle_W + 2 \langle f_2, f_2 \rangle_W - \langle f_1, f_1 \rangle_W - \langle f_2, f_2 \rangle_W + \langle f_1, f_2 \rangle_W + \langle f_2, f_1 \rangle_W) \\
+            & = \frac{1}{4} (2 \langle f_1, f_1 \rangle_W + 2 \langle f_2, f_2 \rangle_W - \langle f_1 - f_2, f_1 - f_2 \rangle_W) \\
+            & = \frac{1}{4} (2 \| f_1 \|_{W}^2 + 2 \| f_2 \|_{W}^2 - \| f_1 - f_2 \|_{W}^2) \\
+            & < \frac{1}{2} (\| f_1 \|_{W}^2 + \| f_2 \|_{W}^2).
+        \end{split}
+        \end{equation*}
+        Nun gilt mit der Konvexität von $G$ und $\| g \|_{W}^2 < \frac{1}{2} (\| f_1 \|_{W}^2 + \| f_2 \|_{W}^2)$
+        \begin{equation*}
+        \begin{split}
+            K(g) & = G(g(x_1),...,g(x_n)) + \lambda \| g \|_{W}^2 \\
+            & = G(\frac{1}{2}(f_1 + f_2)(x_1),...,\frac{1}{2}(f_1 + f_2)(x_n)) + \lambda \| g \|_{W}^2 \\
+            & < \frac{1}{2} G(f_1(x_1),...,f_1(x_n))+ \frac{\lambda}{2} \| f_1 \|_{W}^2 + \frac{1}{2} G(f_2(x_1),...,f_2(x_n))+ \frac{\lambda}{2} \| f_2 \|_{W}^2 \\
+            & = \frac{1}{2} K(f_1) + \frac{1}{2} K(f_2).
+        \end{split}
+        \end{equation*}
+        Ein Widerspruch dazu, dass $f_1, f_2$ minimierer für $K$ sind. Also ist die Lösung des Minimierungsproblems $\min_{f \in W} K(f)$ eindeutig.
+    \end{proof}
+    
+    \vspace{5mm}
+    Die im folgenden definierte Support Vector Machine mit Kernelfunktionen erfüllt die Voraussetzungen des Repräsentationstheorem \ref{representer} und des Satzes über die Eindeutigkeit \ref{thm:eindeutigkeit}.
+    
+\subsection{Support Vector Machine mit Kernel}
+    \begin{dfn} \label{dfn:svm_kernel}
+        Für einen reproduzierenden Kernel $k: \mathcal{X} \times \mathcal{X} \to \mathbb{R}$, den korrespondierenden RKHS $H$ und ein $\lambda > 0$ setze
+        \[
+            \hat{f}_{n}^{SVM} := \argmin_{f \in H, \norm{f}_{H} \leq \lambda} (\frac{1}{m} \sum_{i = 1}^{m}(1 - y_{i} f(x_{i}))_{+}).
+        \]
+        Der resultierende Klassifizierer $\hat{h}_{m}^{SVM} := h_{\hat{f}_{n}^{SVM}} = \sign(\hat{f}_{n}^{SVM})$ heißt \textbf{SVM Klassifizierer} oder \textbf{Support Vector Machine}.
+    \end{dfn}
+    
+    Mit dem Hinge Verlust $\varphi(f,x,y) = (1 - y f(x))_{+}$ ist die Support Vector Machine ein $\varphi$-Risiko-Minimierungsproblem für welches die Menge der möglichen Klassifizierungsfunktionen  gegeben ist durch den Ball $\{f \in H : \norm{f}_{H} \leq \lambda \}$ in einem RKHS auf $\mathcal{X}$ mit einem Radius $\lambda > 0$. Nach der Theorie der Langrange Multiplikatoren existiert nun ein $\lambda' > 0$, so dass wir die folgende Repräsentation erhalten
+    \[
+        \hat{f}_{m}^{SVM} = \argmin_{f \in H}(\mathcal{R}_{m, \varphi})(f) + \lambda' \norm{f}_{H}^{2}).
+    \]
+    Diese Darstellung entspricht Gleichung (\ref{eqn:erm_linear}) wobei wir nun den Funktionen aus einem anderen Raum betrachten.
+    Nach dem Repräsentationstheorem \ref{representer} angewendet auf $G(f(x_{1}),...,f(x_{m})) = \mathcal{R}_{m, \varphi}(f)$ kann das vorherige Optimierungsproblem als endlichdimensionales Problem geschrieben werden. Die Lösung muss von der Form $\hat{f}_{m}^{SVM}(x) = \sum_{i = 1}^{m} \hat{\alpha}_{i} k(x_{i},x)$ für passende $\hat{\alpha} = (\hat{\alpha}_{1},...,\hat{\alpha}_{m}) \in \mathbb{R}^{m}$ sein.
+    Es gilt wegen der Reproduktionseigenschaft von $H$
+    \[
+        \norm{\sum_{i = 1}^{m} \alpha_{i} k(x_{i}, \cdot)}_{H}^{2}
+        = \left\langle \sum_{i = 1}^{m} \alpha_{i} k(x_{i}, \cdot), \sum_{j = 1}^{m} \alpha_{j} k(x_{j}, \cdot) \right\rangle_{H}
+        = \sum_{i,j = 1}^{m} \alpha_{i} \alpha_{j} k(x_{i},x_{j}).
+    \]
+    Die Koeffizienten $\hat{\alpha}$ von $\hat{h}_{m}^{SVM}$ sind gegeben durch
+    \[
+        \hat{\alpha} = \argmin_{\alpha \in \mathbb{R}^{m}} (\frac{1}{m} \sum_{i = 1}^{m} (1 - y_{i} \sum_{j = 1}^{m} \alpha_{j} k(x_{j}, x_{i}))_{+} + \lambda' \sum_{i,j = 1}^{m} \alpha_{i} \alpha_{j} k(x_{i}, x_{j})).
+    \]
+    Es ist zu bemerken, dass der RKHS $H$ in dieser Repräsentation nicht mehr auftaucht. Die Lösung ist nur abhängig vom Kernel $k$, dem Parameter $\lambda'$ und den Datenpunkten $\{(x_{1},y_{1}),...,(x_{m},y_{m})\} \subseteq (\mathcal{X} \times \mathcal{Y})^{m}$. 
+    Mit
+    \[
+        I = \{i = 1,...,m : y_{i} \hat{f}_{m}^{SVM}(x_{i}) \leq 1 \}
+    \]
+    gilt, dass $(1 - \hat{f}_{m}^{SVM})_{+} = 0$ für alle $i \in I$.
+    Also ist $\hat{h}_{m}^{SVM}$ auch die Lösung des folgenden Minimierungsproblems.
+    \[
+        \left( \frac{1}{m} \sum_{i \in I}(1 - y_{i} f(x_{i}))_{+} + \lambda' \norm{f}_{H}^{2} \right) \to \min_{f \in H}! 
+    \]
+    
+    Da das Repräsentationsthorem $\hat{f}_{m}^{SVM}(x) = \sum_{i \in I} \hat{\alpha}k(x_{i},x)$  impliziert, schließen wir, dass $\hat{\alpha}_{i} = 0$ für alle $i$ mit $y_{i} \hat{f}_{m}^{SVM}(x_{i}) > 1$. Das bedeutet, dass der Datenpunkt $(x_{i},y_{i})$ \glqq signifikant\grqq{} richtig klassifiziert wurde. Die Daten $(x_{i})_{i \in I}$ sind dann die Stützvektoren wie in Definition \ref{dfn:support_vector}.
+    
+    
+\newpage
+
+\section{Statistische Lerntheorie} \label{chapter:statistics}
+    Im folgenden werden zwei Abschätzungen vorgestellt. Um eine davon später zu deuten, schauen wir uns das Risiko einer Entscheidungsfunktion erneut genauer an.
+    In Definition \ref{dfn:bayes_risk} hatten wir das Bayes Risiko $\mathcal{R}_{L}^{*}$ als das Infimum der Risiken aller messbaren $h: \mathcal{X} \to \mathcal{Y}$ definiert. Sei $h^{*}: \mathcal{X} \to \mathcal{Y}$ ein Bayes Klassifikator, das heißt $\mathcal{R}_{L}(h^{*}) = \mathcal{R}_{L}^{*}$. Außerdem sei $\hat{h} \in \mathcal{H}$ ein empirischer Risikominimierer, d.h. $\mathcal{R}_{m,L}(\hat{h}) = \min_{h \in \mathcal{H}} \mathcal{R}_{m,L}(h)$. Dann lässt sich die Differenz der Risiken der beiden Funktionen zerlegen in
+    \begin{equation}
+        \mathcal{R}_{L}(\hat{h}) - \mathcal{R}_{L}(h^{*})
+        =
+        \underbrace{\mathcal{R}_{L}(\hat{h}) - \inf_{h \in \mathcal{H}} \mathcal{R}_{L}(h)}_{\text{stochastischer Fehler}} + \underbrace{\inf_{h \in \mathcal{H}} \mathcal{R}_{L}(h) - \mathcal{R}_{L}(h^{*})}_{\text{Approximationsfehler}}
+    \end{equation}
+    für eine Menge von Klassifikatoren $\mathcal{H}$. Der stochastische Fehler vegleicht hier wie weit das Risiko von $\hat{h}$ von dem geringsten Risiko in $\mathcal{H}$ entfernt ist. Der Approximationsfehler gibt an wie flexibel die Menge $\mathcal{H}$ ist.
+    
+    \begin{bem} \label{bem:estimation_error_bound}
+        Sei $\bar{h} \in \mathcal{H}$ mit $\mathcal{R}_{L}(\bar{h}) = \inf_{h \in \mathcal{H}} \mathcal{R}_{L}(h)$ der Minimierer von $\mathcal{R}_{L}(h)$ über $\mathcal{H}$ und $\hat{h}$ weiterhin der empirische Risikominimierer aus $\mathcal{H}$. Der stochastische Fehler lässt sich beschränken durch
+        \[
+            \begin{split}
+            \mathcal{R}_{L}(\hat{h}) - \mathcal{R}_{L}(\bar{h})
+            &=
+            \mathcal{R}_{m,L}(\hat{h}) - \mathcal{R}_{m,L}(\bar{h}) + \mathcal{R}_{L}(\hat{h}) - \mathcal{R}_{m,L}(\hat{h}) + \mathcal{R}_{m,L}(\bar{h}) - \mathcal{R}_{L}(\bar{h}) \\
+            &\leq
+            2 \sup_{h \mathcal{H}} \abs{\mathcal{R}_{L}(h) - \mathcal{R}_{m,L}(h)}.
+            \end{split}
+        \]
+    \end{bem}
+    
+    \subsection{Oracle Ungleichung}
+        Das in diesem Abschnitt folgende Theorem gibt eine Schranke für den stochastischen Fehler in Abhängigkeit von dem Parameter $\lambda > 0$ und der Wahl der Kernelfunktion $k: \mathcal{X} \times \mathcal{X} \to \mathbb{R}$. In der Praxis sollte die Wahl von $\lambda > 0$ natürlich den stochastischen Fehler und den Approximationsfehler gleichzeitig gering halten. Die Wahl von $\lambda$ und $k$ geschieht meist durch ein Verfahren namens Kreuzvalidierung.
+    
+    \begin{lemma}[Trabs, 2019, \cite{trabs} Lemma 3.24] \label{oracle_lemma_1}
+        Sei $(H, \langle \cdot, \cdot \rangle_{H})$ ein RKHS mit reproduzierendem Kern $k: \mathcal{X} \times \mathcal{X} \to \mathbb{R}$, dann gilt für alle $f \in H$
+        \[
+            \norm{f}_{\infty}
+            =
+            \sup_{x \in \mathcal{X}} \abs{f(x)}
+            \leq
+            \norm{f}_{H} \sup_{x \in \mathcal{X}} \sqrt{k(x,x)}.
+        \]
+    \end{lemma}
+    \begin{proof}
+        Zunächst bemerken wir, dass mit $f:= k(\cdot, x) \in H$ für festes $x \in \mathcal{X}$, nach der Reproduktionseigenschaft von $H$, gilt
+        \[
+            k(x,y)
+            =
+            f(y)
+            =
+            \langle f, k(\cdot, y) \rangle_{H}
+            =
+            \langle k(\cdot, x), k(\cdot, y) \rangle_{H}
+            , \ \text{ für alle $y \in \mathcal{X}$}.
+        \]
+        Hierdurch, und durch die Cauchy-Schwarz Ungleichung und die Reproduktionseigenschaft von $H$ gilt, dass
+        \[
+            \begin{split}
+            \sup_{x \in \mathcal{X}} f(x)^{2}
+            &=
+            \sup_{x \in \mathcal{X}} \langle f, k(\cdot, x) \rangle_{H}^{2}
+            \leq
+            \norm{f}_{H}^{2} \sup_{x \in \mathcal{X}} \norm{k(\cdot, x)}_{H}^2 \\
+            &=
+            \norm{f}_{H}^{2} \sup_{x \in \mathcal{X}} \langle k(\cdot, x), k(\cdot, x) \rangle_{H}
+            =
+            \norm{f}_{H}^{2} \sup_{x \in \mathcal{X}} k(x,x).
+            \end{split}
+        \]
+        Das ziehen der Wurzel auf beiden Seiten der Ungleichung liefert die Behauptung.
+    \end{proof}
+
+    Das folgende Lemma wird für den späteren Beweis der Oracle Ungleichung benötigt.
+    \begin{lemma} \label{oracle_lemma_2}
+        Mit $\varphi: \mathbb{R} \to \mathbb{R}_{+}, \ \varphi(x) = (1 + x)_{+}$ und $0 < L < \infty$ ist
+        \[
+            \psi: [-1,1] \to \mathbb{R}, \ \psi(u) := \frac{\varphi(L u) - 1}{L}
+        \]
+        eine Kontraktion auf $[-1,1]$ und $\psi(0) = 0$.
+    \end{lemma}
+    \begin{proof}
+        Es gilt
+        \[
+            \psi(0) = \frac{\varphi(0) - 1}{L} = \frac{1 - 1}{L} = 0.
+        \]
+        Es bleibt zu zeigen, dass $\psi$ eine Kontraktion ist. Seien dazu $u, v \in [-1, 1]$.
+        \[
+            \abs{\psi(u) - \psi(v)}
+            =
+            \abs{\frac{\varphi(L u) - 1}{L} - \frac{\varphi(L u) - 1}{L}}
+            = 
+            \frac{1}{L} \abs{\varphi(L u) - \varphi(L v)}.
+        \]
+        \textit{Falls $1 + L u \geq 0$ und $1 + L v \geq 0$}:
+        \[
+            \frac{1}{L} \abs{\varphi(L u) - \varphi(L v)}
+            =
+            \frac{1}{L} \abs{(1 + L u) - (1 + L v)}
+            =
+            \frac{1}{L} \abs{L u - L v}
+            =
+            \abs{u - v}.
+        \]
+        \textit{Falls $1 + L u \geq 0$ und $1 + L v < 0$}: \\
+        Dann gilt $u \geq - \frac{1}{L}$, $-v > \frac{1}{L}$ und insbesondere
+        \[
+            \frac{1}{L} \abs{\varphi(L u) - \varphi(L v)}
+            =
+            \frac{1}{L} \abs{1+ L u - 0}
+            =
+            \abs{\frac{1}{L} + u}
+            =
+            \frac{1}{L} + u
+            \leq
+            -v + u
+            =
+            \abs{u - v}.
+        \]
+        \textit{Falls $1 + L u < 0$ und $1 + L v \geq 0$}: \\
+        Dann gilt $-u > \frac{1}{L}$, $v \geq -\frac{1}{L}$ und insbesondere
+        \[
+            \frac{1}{L} \abs{\varphi(L u) - \varphi(L v)}
+            =
+            \frac{1}{L} \abs{0 - (1 + L v)}
+            =
+            \abs{- \frac{1}{L} - v}
+            =
+            -(- \frac{1}{L} - v)
+            =
+            \frac{1}{L} + v
+            \leq
+            - u + v
+            =
+            \abs{u - v}.
+        \]
+        Insgesamt gilt somit $\abs{\psi(u) - \psi(v)} \leq \abs{u - v}$ und $\psi$ ist eine Kontraktion.
+    \end{proof}
+    
+    \begin{thm}[Oracle Ungleichung(Trabs, 2019, \cite{trabs} Thm. 3.27)]\label{thm:oracle_inequality}
+        Sei $k$ ein Kernel des Hilbertraums mit reproduzierendem Kern $H$ mit $\sup_{x\in \mathcal{X}} k(x,x) < \infty$. Dann erfüllt die korrespondierende SVM Klassfizierungsfunktion $\hat{h}_{m}^{\text{SVM}}: \mathcal{X} \to \{-1,1\}$ mit Parameter $\lambda > 0$ erfüllt
+        \[
+            \mathbb{E}[\mathcal{R}(\hat{h}_{m}^{\text{SVM}})] \leq \inf_{\|f\|_{H} \leq \lambda} \mathcal{R}_{\varphi}(f) + \frac{8 \lambda}{\sqrt{m}} \mathbb{E}[k(X,X)]^{1/2}.
+        \]
+    \end{thm}
+    \begin{proof}
+        \underline{Schritt 1:} Für $\varphi = (1 + x)_{+}$ gilt
+        \[
+            \begin{split}
+            \mathcal{R}(\hat{h}_{m}^{\text{SVM}}) 
+            &= \mathbb{P}^{(X,Y)}(\hat{h}_{m}^{\text{SVM}}(X) \neq Y)
+            = \mathbb{P}^{(X,Y)}(\sign(\hat{f}_{m}^{\text{SVM}}) \neq Y) \\
+            &= \mathbb{P}^{(X,Y)}(-Y \hat{f}_{m}^{\text{SVM}}(X) > 0)
+            = \mathbb{E}^{(X,Y)}[\mathds{1}_{\{-Y \hat{f}_{m}^{\text{SVM}}(X) > 0\}}] \\
+            &\leq \mathbb{E}^{(X,Y)}[(1-Y \hat{f}_{m}^{\text{SVM}}(X))_{+}]
+            = \mathcal{R}_{\varphi}(\hat{f}_{m}^{\text{SVM}}).
+            \end{split}
+        \]
+        Mit Bemerkung \ref{bem:estimation_error_bound} und der vorherigen Überlegung folgt
+        \[
+           \begin{split}
+           \mathcal{R}(\hat{h}_{m}^{\text{SVM}})
+            &\leq \mathcal{R}_{\varphi}(\hat{f}_{m}^{\text{SVM}}) - \inf_{\|f\|_{H} \leq \lambda} \mathcal{R}_{\varphi}(f) + \inf_{\|f\|_{H} \leq \lambda} \mathcal{R}_{\varphi}(f) \\
+            &\leq 2 \sup_{\|f\|_{H} \leq \lambda} |\mathcal{R}_{m,\varphi}(f) - \mathcal{R}_{\varphi}(f) | + \inf_{\|f\|_{H} \leq \lambda} \mathcal{R}_{\varphi}(f).
+            \end{split}
+        \]
+        Es bleibt zu zeigen, dass
+        \[
+            \mathbb{E}[\sup_{\|f\|_{H} \leq \lambda} |\mathcal{R}_{m, \varphi}(f)-\mathcal{R}_{\varphi}(f)|]
+            \leq 4 \lambda \sqrt{\mathbb{E}[k(X,X)/m}].
+        \]
+        
+        \underline{Schritt 2:}
+        Wir nutzen ein symmetrierungs Vorgehen um das Supremum zu beschränken. Dazu sei $(X_{i}', Y_{i}')_{i = 1,...,m}$ eine identische Kopie von $(X_i,Y_i)_{i=1,...,m}$ definiert auf dem gleichen Wahrscheinlichkeitsraum (ein sogenanntes ghost Sample). Jensens Ungleichung und $\sup_{t} \mathbb{E}[Z_{t}] \leq \mathbb{E}[\sup_{t} Z_{t}]$ implizieren
+        % \begin
+            \begin{align*}
+            &\mathbb{E}\left[\sup_{\|f\|_{H} \leq \lambda} |\mathcal{R}_{m, \varphi}(f) - \mathcal{R}_{\varphi}(f)|\right] \\
+            &=
+            \mathbb{E}\left[\sup_{\|f\|_{H} \leq \lambda} \left|\frac{1}{n} \sum_{i = 1}^{n}(\varphi(-Y_{i}f(X_{i})) - \mathbb{E}[\varphi(-Y_{i}' f(X_{i}'))])\right|\right] \\
+            &\overset{\footnotemark[1]}=
+            \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\mathbb{E}\left[\frac{1}{n} \sum_{i=1}^{n} (\varphi(-Y_{i} f(X_{i}))-\varphi(-Y_{i}' f(X_{i}'))) \mathrel{\Big|} X_{1},...,X_{m},Y_{1},...,Y_{m,}\right]\right|\right]\\
+            &\overset{\footnotemark[2]}\leq
+            \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \mathbb{E}\left[\left|\frac{1}{n} \sum_{i=1}^{n} (\varphi(-Y_{i} f(X_{i}))-\varphi(-Y_{i}' f(X_{i}')))\right| \mathrel{\Big|} X_{1},...,X_{m},Y_{1},...,Y_{m,}\right]\right]\\
+            &\overset{\footnotemark[3]}\leq
+            \mathbb{E}\left[\mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\frac{1}{n} \sum_{i=1}^{n} (\varphi(-Y_{i} f(X_{i}))-\varphi(-Y_{i}' f(X_{i}')))\right| \mathrel{\Big|} X_{1},...,X_{m},Y_{1},...,Y_{m,}\right]\right]\\
+            &\overset{\footnotemark[4]}=
+            \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\frac{1}{n} \sum_{i=1}^{n} (\varphi(-Y_{i} f(X_{i}))-\varphi(-Y_{i}' f(X_{i}')))\right|\right].
+            \end{align*} 
+            \footnotetext[1]{unabhängige Zufallsvariablen in bedingtem Erwartungswert}
+            \footnotetext[2]{Jensen's Ungleichung mit $|\cdot|$}
+            \footnotetext[3]{$\sup \mathbb{E}(\cdot) \leq \mathbb{E}(\sup(\cdot))$}
+            \footnotetext[4]{Satz vom totalen Erwartungswert}
+        % \end{equation*}
+        
+        Darüber hinaus sei $(\varepsilon_{i})_{i=1,...,m}$ eine Rademacher Folge, d.h. \mbox{$\mathbb{P}(\varepsilon_{i} = 1) = \mathbb{P}(\varepsilon_{i} = -1) = \frac{1}{2}$}, die unabhängig von $(X_{i},Y_{i})_{i=1,...,m}$ und $(X_{i}',Y_{i}')_{i=1,...,m}$. Da die Verteilung von
+        \[
+            Z_{i} := (\varphi(-Y_{i}f(X_{i})) - \varphi(-Y_{i}'f(X_{i}')))
+        \]
+        symmetrisch ist , d.h. $Z_{i} \overset{d}{=} -Z_{i}$, gilt auch $\varepsilon_{i} Z_{i} \overset{d}{=} Z_{i}$ für $i = 1,...,m$, denn
+        \begin{align*}
+            \mathbb{P}(\varepsilon_{i} Z_{i} \in A) = \frac{1}{2} \mathbb{P}(Z_{i} \in A) + \frac{1}{2} \mathbb{P}(-Z_{i} \in A) = \mathbb{P}(Z_{i} \in A) &&     &\text{für alle}\ A \in \mathcal{B}_{\mathbb{R}}.
+        \end{align*}
+        Wir schließen daraus
+        \[
+            \begin{split}
+            \mathbb{E}\left[\sup_{\|f\|_{H} \leq \lambda} \left|\mathcal{R}_{m, \varphi}(f) - \mathcal{R}_{\varphi}(f)\right|\right]
+            &\leq
+            \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\frac{1}{m} \sum_{i=1}^{m} (\varphi(-Y_{i} f(X_{i}))-\varphi(-Y_{i}' f(X_{i}')))\right|\right] \\
+            &=
+            \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\frac{1}{m} \sum_{i=1}^{m} Z_{i}\right|\right] \\
+            &=
+            \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\frac{1}{m} \sum_{i=1}^{m} \varepsilon_{i} Z_{i}\right|\right] \\
+            &=
+            \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\frac{1}{m} \sum_{i=1}^{m} \varepsilon_{i} (\varphi(-Y_{i} f(X_{i}))-\varphi(-Y_{i}' f(X_{i}')))\right|\right] \\
+            &= 
+            \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\frac{1}{m} \sum_{i=1}^{m} \varepsilon_{i} (\varphi(-Y_{i} f(X_{i})) - 1 + 1 -\varphi(-Y_{i}' f(X_{i}')))\right|\right] \\
+            &=
+            \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\frac{1}{m} \sum_{i=1}^{m} \varepsilon_{i} (\varphi(-Y_{i} f(X_{i})) - 1) + \varepsilon_{i} (1 -\varphi(-Y_{i}' f(X_{i}')))\right|\right] \\
+            &=
+            \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\frac{1}{m} \sum_{i=1}^{m} \varepsilon_{i} (\varphi(-Y_{i} f(X_{i})) - 1) + \varepsilon_{i} (\varphi(-Y_{i}' f(X_{i}')) - 1)\right|\right] \\
+            &=
+            2 \mathbb{E}\left[\sup_{\|f\|_{H}\leq \lambda} \left|\frac{1}{m} \sum_{i=1}^{m} \varepsilon_{i} (\varphi(-Y_{i} f(X_{i})) - 1)\right|\right] \\
+            \end{split}
+        \]
+        wobei wir im letzten Schritt genutzt haben, dass $(X_{i},Y_{i})$ und $(X_{i}',Y_{i}')$ die gleiche Verteilung besitzen.\\
+        Als nächsten nutzen wir ein Kontraktionsargument von Ledoux und Talagrand (2011, Thm. 4.12)\cite{ledoux_probability_2011}. Falls $\psi: [-1,1] \to \mathbb{R}$ eine Kontraktion ist, d.h. $\abs{\psi(x) - \psi(y)} \leq \abs{x - y}$ und $\psi(0) = 0$, dann gilt für jede Familie $\mathcal{G} \subseteq \{ g: \mathcal{X} \times \{-1, +1\} \to [-1,1] \text{ messbar}\}$
+        \begin{equation} \label{ledoux_talagrand_ineq}
+            \mathbb{E}\left[\sup_{g \in \mathcal{G}} \abs{\frac{1}{m} \sum_{i=1}^{m} \varepsilon_{i} \psi(g(X_{i},Y_{i}))}\right]
+            \leq
+            2 \mathbb{E}\left[\sup_{g \in \mathcal{G}} \abs{\frac{1}{m} \sum_{i=1}^{m} \varepsilon_{i} g(X_{i}, Y_{i})}\right].
+        \end{equation}
+        Durch nutzen von $\norm{f}_{H} \leq \lambda$ und Lemma \ref{oracle_lemma_1} erhalten wir $\norm{f}_{\infty} \leq \lambda \sup_{x \in \mathcal{X}} \sqrt{k(x,x)} =: L < \infty$. Definiere die Funktionen $\psi(u) \coloneqq \varphi(L u) - 1 / L$ und $g(x,y) = -y f(x) / L \in [0,1]$. Dann ist $\psi$ nach Lemma \ref{oracle_lemma_2} eine Kontraktion und $\psi(0) = 0$ und wir können somit Ungleichung (\ref{ledoux_talagrand_ineq}) anwenden.
+        \[
+            \mathbb{E}\left[\sup_{\norm{f}_{H} \leq \lambda} \abs{ \frac{1}{m} \sum_{i = 1}^{m} \varepsilon_{i} \frac{\varphi(-Y_{i} f(X_{i})) - 1}{L}}\right]
+            \leq
+            2 \mathbb{E}\left[\sup_{\norm{f}_{H} \leq \lambda} \abs{ \frac{1}{m} \sum_{i = 1}^{m} \epsilon_{i} \frac{Y_{i} f(X_{i})}{L}}\right].
+        \]
+        Da $\varepsilon_{i} \overset{d}{=} \varepsilon_{i} Y_{i}$, schließen wir zusammen mir der vorherigen Ungleichung
+        \[
+            \mathbb{E}\left[\sup_{\|f\|_{H} \leq \lambda} |\mathcal{R}_{m, \varphi}(f) - \mathcal{R}_{\varphi}(f)|\right]
+            \leq
+            4 \mathbb{E}\left[\sup_{\norm{f}_{H} \leq \lambda} \abs{\frac{1}{m} \sum_{i=1}^{m} \varepsilon_{i} f(X_{i})}\right].
+        \]
+        
+        \newpage
+        \underline{Schritt 3:}
+        Durch nutzen der Hilbertraum Struktur des RKHS $H$, liefert die Cauchy-Schwarz Ungleichung
+        \[
+            \begin{split}
+                \sup_{\norm{f}_{H} \leq \lambda} \abs{\frac{1}{m} \sum_{i = 1}^{m} \varepsilon_{i} f(X_{i})}^{2}
+                &=
+                \sup_{\norm{f}_{H} \leq \lambda} \abs{\frac{1}{m} \sum_{i = 1}^{m} \varepsilon_{i} \langle f, k(X_{i}, \cdot) \rangle_{H}}^{2} \\
+                &=
+                \sup_{\norm{f}_{H} \leq \lambda} \abs{\langle f, \frac{1}{m} \sum_{i = 1}^{m} \varepsilon_{i} k(X_{i}, \cdot) \rangle_{H}}^{2}\\
+                &\leq
+                \sup_{\norm{f}_{H} \leq \lambda} \norm{f}_{H}^{2} \norm{\frac{1}{m} \sum_{i = 1}^{m} \varepsilon_{i} k(X_{i}, \cdot)}_{H}^{2} \\
+                &=
+                \lambda^{2} \frac{1}{m^{2}} \sum_{i,j = 1}^{m} \varepsilon_{i} \varepsilon_{j} k(X_{i},X_{j}).
+            \end{split}
+        \]
+        Wegen $\mathbb{E}[\varepsilon_{i} \varepsilon_{j}] = \hat{\delta}_{ij}$ erhalten wir schließlich
+        \[
+            \begin{split}
+            \mathbb{E}\left[\sup_{\norm{f}_{H} \leq \lambda} \abs{\frac{1}{m} \sum_{i=1}^{m} \varepsilon_{i} f(X_{i})}\right]
+            &\leq
+            \lambda \mathbb{E}\left[\frac{1}{m^{2}} \sum_{i,j = 1}^{m} \varepsilon_{i} \varepsilon_{j} k(X_{i}, X_{j})\right]^{1/2} \\
+            &=\frac{\lambda}{m} \left(\sum_{i = 1}^{m}\mathbb{E}[k(X_{i},X_{i})]\right)^{1/2} \\
+            &= \frac{\lambda}{\sqrt{m}} \sqrt{\mathbb{E}[k(X,X)]}.
+            \end{split}
+        \]
+        Wobei wir in der letzen Gleichung genutzt haben, dass die $X_i$ für alle $i = 1,...,m$ die Gleiche Verteilung $X$ besitzen und unabhängig voneinander sind.
+        Gemeinsam mit den vorherigen Schritten ist die Behauptung bewiesen.
+        \end{proof}
+        
+        Das vorherige Theorem sagt also aus, dass sich der Erwartungswert des stochastischen Fehlers beschränken lässt.
+        
+    \subsection{Risiko Schranke}
+        Im folgenden Abschnitt lernen wir eine Schranke für das Risiko einer SVM-Entscheidungsfunktion kenen.
+        
+    \begin{dfn}[Empirische Rademacher Komplexität]
+        Sei $\mathcal{G}$ eine Familie von Funktionen die von $\mathcal{Z} = \mathcal{X} \times \mathcal{Y}$ nach $[a,b] \subseteq \mathbb{R}$ abbilden und $S = (z_{1},...,z_{m}) = ((x_{1},y_{1}),...,(x_{m},y_{m}))$ eine feste Stichprobe. Dann ist die \textbf{empirische Rademacher Komplexität} von $\mathcal{G}$ in Bezug auf $S$ definiert als
+        \[
+            \hat{R}_{S}(\mathcal{G}) = \mathbb{E}_{\sigma}\left[\sup_{g \in \mathcal{G}} \frac{1}{m} \sum_{i = 1}^{m} \sigma_{i} g(z_{i})\right]
+        \]
+        wobei $\sigma = (\sigma_{1},...,\sigma_{m})^{T}$ mit unabhängigen, identisch verteilten Zufallsvariablen $\sigma_{i}$ mit Werten in $\{-1,1\}$ und $\mathbb{P}(\sigma_{i} = -1) = \mathbb{P}(\sigma_{i} = 1) = 1/2$ für alle $i = 1,...,m$.
+    \end{dfn}
+    
+    \begin{dfn}[Rademacher Komplexität]
+        Sei $\mathcal{D}$ die Verteilung auf $\mathcal{X} \times \mathcal{Y}$ aus welcher die Stichproben gezogen werden. Für alle $m \in \mathbb{N}$ ist die \textbf{Rademacher Komplexität} von $\mathcal{G}$ die Erwartung der empirischen Rademacher Komplexität über alle Stichproben der Größe $m$, d.h.
+        \[
+            R_{m}(\mathcal{G}) = \mathbb{E}_{S \sim \mathcal{D}^{m}}[\hat{R}_{S}(\mathcal{G})].
+        \]
+    \end{dfn}
+    
+    Die Rademacher Komplexität ist ein Maß für die Komplexität einer Familie von Funktionen $\mathcal{H}$. Bezogen auf die Situation der Klassifikation von Daten gibt sie an wie flexibel $\mathcal{H}$ ist für verschiedene Label der Datenpunkte.
+    
+
+    \begin{dfn}[Margin loss function, Rand-Verlustfunktion]
+        Für jedes $\rho > 0$ ist die \textbf{$\rho$-Rand-Verlustfunktion} $L_{\rho}: \mathcal{H} \times \mathcal{X} \times \mathcal{Y} \to \mathbb{R}_{+}$ definiert für alle $f \in \mathcal{H}, x \in \mathcal{X}, y \in \mathcal{Y}$ durch $L_{\rho}(f,x,y) = \Phi_{\rho}(y f(x))$. Wobei
+        \[
+            \Phi_{\rho}(z)
+            =
+            \min(1, \max(0, 1 - \frac{z}{\rho}))
+            =
+            \begin{cases}
+                1, & \text{falls } z \leq 0 \\
+                1 - \frac{z}{\rho}, &\text{falls } 0 \leq z \leq \rho \\
+                0, &\text{falls } \rho \leq z
+            \end{cases}
+        \]
+        für alle $z \in \mathbb{R}$.
+    \end{dfn}
+    
+    Die eingeführte Verlustfunktion ist Dargestellt in Abbildung \ref{fig:margin_loss}. Der Parameter $\rho > 0$ kann interpretiert werden als Konfidenzrand der von einer Hypothese $f \in \mathcal{H}$ gefordert ist. Falls $\sign(f(x)) \neq y$ so klassifiziert $f$ $x$ falsch und $L_{\rho}(f,x,y) = 1$. Gilt hingegen $\sign(f(x)) = y$ so klassifiziert $f$ $x$ richtig. Sei $(x,y) \in \mathcal{X} \times \mathcal{Y}$ ein Datenpunkt und $f \in \mathcal{H}$ eine Entscheidungsfunktion. Falls zusätzlich gilt dass $f(x) > \rho$ so bestraft $L_{\rho}$ diese Vorhersage nicht. Für Vorhersagen in $[0, \rho)$ so wird diese Vorhersage Linear von $L_{\rho}$ bestraft. Der empirische Verlust wird analog zu anderen Verlustfunktionen definiert.
+
+
+    \begin{dfn}[Empirischer Rand-Verlust]
+        Gegeben einer Stichprobe $S = \{(x_{1},y_{1}),..., (x_{m},y_{m})\} \subseteq (\mathcal{X} \times \mathcal{Y})^{m}$ und einer Entscheidungsfunktion $f \in \mathcal{H}$ so ist der \textbf{empirische Rand-Verlust} definiert durch
+        \[
+            \mathcal{R}_{m,\rho}(f) = \frac{1}{m} \sum_{i = 1}^{m} L_{\rho}(f, x_{i}, y_{i}).
+        \]
+    \end{dfn}
+    
+    % Plot des Margin Loss
+    \begin{figure}[h]
+    \centering
+    \begin{tikzpicture}[
+      declare function={
+        func(\x)= (\x < 0) * (1)   +
+                  and(\x >= 0, \x < 2/3) * (1- (3/2 * (\x))) +
+                  (\x >= 2/3) * (0)
+       ;
+      }
+    ]
+    \begin{axis}[
+      axis equal,
+      axis x line=middle, axis y line=middle,
+      ymin=0, ymax=2, ytick={0,...,2}, ylabel=$\Phi_{\rho}(x)$,
+      xmin=-2, xmax=2, xtick={-2,...,2}, xlabel=$x$,
+      domain=-3:3,samples=101, % added
+    ]
+        \addplot [blue,thick] {func(x)};
+        \node[label={270:{$\rho$}},circle,fill,inner sep=2pt] at (axis cs:0.66,0) {};
+    \end{axis}
+    \end{tikzpicture}
+    \caption{Plot von $\Phi_{\rho}(x)$}
+    \label{fig:margin_loss}
+    \end{figure}
+    
+    \vspace{10mm}
+    
+    Wir bemerken, dass für jedes $i \in \{1,...,m\}$ gilt
+    \[
+        L_{\rho}(f,x_{i},y_{i})
+        =
+        \Phi_{\rho}(y_{i} f(x_{i}))
+        \leq
+        \mathbbm{1}_{\{y_{i} f(x_{i}) \leq \rho \}}.
+    \]
+    Daher kann auch der empirische Rand-Verlust beschränkt werden durch
+    \[
+        \mathcal{R}_{m, \rho}(f)
+        \leq
+        \frac{1}{m} \sum_{i = 1}^{m} \mathbbm{1}_{\{y_{i} f(x_{i}) \leq \rho \}}.
+    \]
+    Dieser Wert gibt den Anteil der Trainingspunkte vom gesamten Datenset $S \subseteq (\mathcal{X} \times \mathcal{Y})^{m}$ an die von einer Entscheidungsfunktion $f \in \mathcal{H}$ mit einer Konfidenz von weniger als $\rho$ klassifiziert werden.
+    
+    Wir betrachten nun mit den eingeführten Begriffen eine Abschätzung des Risikos.
+    
+    \begin{bem} \label{bem:margin_loss_leq_hinge_loss}
+        Die $\rho$-Rand-Verlustfunktion $L_{\rho}$ lässt sich für $\rho \in (0,1]$ beschränken durch die Hinge-Loss-Funktion. Insbesondere gilt dann auch für das empirische Risiko
+        \[
+            \mathcal{R}_{m,\rho}(f) \leq \mathcal{R}_{m,L_{hinge}}(f)
+        \]
+        für alle $f: \mathcal{X} \to \mathcal{Y}$.
+    \end{bem}
+    
+    \begin{thm}[Mohri, Rostamizadeh und Talwalkar, 2018, Thm. 5.8]
+        Sei $\mathcal{H}$ eine Menge reellwertiger Funktionen. Fixiere $\rho > 0$, dann gelten die beiden folgenden Abschätzungen für beliebiges $\delta > 0$ mit Wahrscheinlichkeit $1 - \delta$ für alle $h \in \mathcal{H}$.
+        \[
+            \begin{split}
+            \mathcal{R}(h) &\leq \mathcal{R}_{m, \rho}(h) + \frac{2}{\rho} R_{m}(\mathcal{H}) + \sqrt{\frac{\log(\frac{1}{\delta})}{2 m}} \\
+            \mathcal{R}(h) &\leq \mathcal{R}_{m, \rho}(h) + \frac{2}{\rho} \hat{R}_{S}(\mathcal{H}) + 3 \sqrt{\frac{\log(\frac{2}{\delta})}{2 m}}.
+            \end{split}
+        \]
+    \end{thm}
+    \begin{proof}
+        Der Beweis befindet sich in \textit{Foundations of Machine learning}(2018, Thm. 5.8)\cite{foundations}
+    \end{proof}
+    
+    Diese Schranken schlagen einen Kompromiss vor. Große Terme $\rho$ verringern den Beitrag der Rademacher Komplexität zur Abschätzung. Gleichzeitig führen größere Werte von $\rho$ dazu, dass der empirische Rand Verlust größer wird da von $h$ eine höhere Konfidenz verlangt wird. Falls $\mathcal{R}_{m, \rho}(h)$ auch für größere Werte von $\rho$ klein bleibt, so zeigt $h$ eine sehr gute Garantie für ein kleines Risiko auf.
+    
+    \begin{thm}[Rademacher Komplexität Kernel-basierter Hypothesen (Mohri, Rostamizadeh und Talwalkar, 2018, Thm. 6.12)]\label{thm:rademacher_bound}
+        Sei $k: \mathcal{X} \times \mathcal{X} \to \mathbb{R}$ ein Kernel und sei $\Phi: \mathcal{X} \to H$ eine Merkmalsabbildung assoziiert mit $k$. Außerdem sei $S \subseteq \{x \in \mathbb{R}^{d} \mid k(x,x) \leq r^{2}\}$ eine Stichprobe der Größe $m$ und sei $\mathcal{H} = \{ x \mapsto \langle w, \Phi(x) \rangle \mid \norm{w}_{H} \leq \lambda \}$ für ein $\lambda \geq 0$. Dann
+        \[
+            \hat{R}_{S}(\mathcal{H}) \leq \frac{\lambda \sqrt{\Tr(K)}}{m} \leq \sqrt{\frac{(r \lambda)^{2}}{m}}.
+        \]
+    \end{thm}
+    \begin{proof}
+    Es gilt
+    \[
+    \begin{split}
+        \hat{R}_{S}(\mathcal{H})
+        &=
+        \frac{1}{m} \mathbb{E}_{\sigma}\left[\sup_{\norm{w} \leq \lambda} \langle w, \sum_{i = 1}^{m} \sigma_{i} \Phi(x_{i}) \rangle\right]. \\
+        \end{split}
+        \]
+        Mit der Cauchy-Schwarz Ungleichung gilt dann
+        \[
+        \begin{split}
+        \hat{R}_{S}(\mathcal{H})
+        &\leq
+        \frac{1}{m} \mathbb{E}_{\sigma}\left[\sup_{\norm{w} \leq \lambda} \norm{w}_{H} \norm{\sum_{i = 1}^{m} \sigma_{i} \Phi(x_{i})}_{H}\right]\\
+        &\leq
+        \frac{\lambda}{m} \mathbb{E}_{\sigma}\left[\norm{\sum_{i = 1}^{m} \sigma_{i} \Phi(x_{i})}_{H}\right].\\
+        \end{split}
+        \]
+        Mit der Jensen's Ungleichung gilt weiterhin
+        \[
+        \begin{split}
+        \hat{R}_{S}(\mathcal{H})
+        &\leq
+        \frac{\lambda}{m} \left(\mathbb{E}_{\sigma}\left[\norm{\sum_{i = 1}^{m} \sigma_{i} \Phi(x_{i})}_{H}^{2}\right]\right)^{1/2}\\
+        &=
+        \frac{\lambda}{m} \left(\mathbb{E}_{\sigma}\left[ \left\langle \sum_{i = 1}^{m} \sigma_{i} \Phi(x_{i}), \sum_{j = 1}^{m} \sigma_{j} \Phi(x_{j}) \right\rangle_{H} \right]\right)^{1/2} \\
+        &=
+        \frac{\lambda}{m} \sum_{i,j = 1}^{m} \mathbb{E}_{\sigma}\left[\sigma_{i} \sigma_{j} \langle \Phi(x_{i}), \Phi(x_{j}) \rangle_{H} \right]^{1/2} \\
+        &=
+        \frac{\lambda}{m} \sum_{i = 1}^{m} \mathbb{E}_{\sigma}\left[\langle \Phi(x_{i}), \Phi(x_{i}) \rangle_{H} \right]^{1/2} \\
+        &=
+        \frac{\lambda}{m} \mathbb{E}_{\sigma}\left[\sum_{i = 1}^{m} k(x_{i}, x_{i})\right] \\
+        &=
+        \frac{\lambda}{m} \sqrt{\Tr(K)} 
+        \leq
+        \sqrt{\frac{(r \lambda)^{2}}{m}}.
+    \end{split}
+    \]
+    Insbesondere wegen $\mathbb{E}_{\sigma}[\sigma_{i} \sigma_{j}] = \hat{\delta}_{i j}$ und im letzten Schritt $\Tr(K) = \sum_{i=1}^{m} \underbrace{k(x_{i}, x_{i})}_{\leq r^{2}} \leq m r^{2}$.
+    \end{proof}
+    
+    \begin{bem}
+        Insbesondere gilt auch für die Rademacher Komplexität
+        \[
+            R_{m}(\mathcal{H})
+            =
+            \mathbb{E}_{S \sim \mathcal{D}^{m}}[\hat{R}_{S}(\mathcal{H})] \leq
+            \mathbb{E}_{S \sim \mathcal{D}^{m}}\left[\sqrt{\frac{(r \lambda)^{2}}{m}}\right] = \sqrt{\frac{(r \lambda)^{2}}{m}}.
+        \]
+        und außerdem
+        \[
+            R_{m}(\mathcal{H})
+            =
+            \mathbb{E}_{S \sim \mathcal{D}^{m}}[\hat{R}_{S}(\mathcal{H})] \leq
+            \mathbb{E}_{S \sim \mathcal{D}^{m}}\left[\frac{\lambda \Tr(K)}{m}\right] = \frac{\lambda}{m} \mathbb{E}_{S \sim \mathcal{D}^{m}}\left[\sum_{i = 1}^{m} k(x_{i},x_{i})\right] = \lambda \mathbb{E}_{X \sim \mathcal{D}}[k(X,X)].
+        \]
+        Wobei wir im letzten Schritt verwendet haben, dass die Datenpunkte identisch Verteilt sind.
+    \end{bem}
+    
+    Diese Schranken werden im folgenden Abschnitt für verschiedene Wahlen der Kernel-Funktion $k$ genauer untersucht. Insbesondere für translationsinvariante Kernelfunktionen liefert der Abschnitt ein interessantes Resultat.
+    
+    Die Schranken für die Rademacher Komplexität können in beliebige Risikoschranken eingesetzt werden die auf der Rademacher Komplexität basieren. So auch in die Risikoschranken aus Satz \ref{thm:risk_bound}. Somit ergibt sich folgendes Korollar.
+    
+    \newpage
+    \begin{cor}[Mohri, Rostamizadeh und Talwalkar, 2018, Thm. 6.13]\label{thm:risk_bound}
+        Sei $k: \mathcal{X} \times \mathcal{X} \to \mathbb{R}$ ein Kernel mit $r^{2} = \sup_{x \in \mathcal{X}} k(x,x)$. Sei $\Phi: \mathcal{X} \to H$ eine Merkmalsabbildung assoziiert mit $k$ und sei $\mathcal{H} = \{ x \mapsto \langle w, \Phi(x) \rangle \mid \norm{w}_{H} \leq \lambda \}$ für $\lambda \geq 0$. Für festes $\rho > 0$ gelten die folgenden beiden Ungleichung mit Wahrscheinlichkeit $1 - \delta$ für $\delta \in (0,1)$ für alle $h \in \mathcal{H}$
+        \[
+        \begin{split}
+            \mathcal{R}(h) &\leq \mathcal{R}_{m, \rho}(h) + 2 \sqrt{\frac{(r \lambda)^{2}}{\rho^{2} m}} + \sqrt{\frac{\log(\frac{1}{\delta})}{2 m}} \\
+            \mathcal{R}(h) &\leq \mathcal{R}_{m, \rho}(h) + 2 \frac{\sqrt{\Tr(K) \lambda^{2}}}{\rho m} + 3 \sqrt{\frac{\log(\frac{2}{\delta})}{2 m}}.
+        \end{split}
+        \]
+    \end{cor}
+    
+    Wegen Bemerkung \ref{bem:margin_loss_leq_hinge_loss} sagen diese Aussagen aus, dass falls eine Funktion $h: \mathcal{X} \to \mathcal{Y}$ gut im Sinne des empirischen Hinge-Loss-Risikos klassifiziert, so ist auch das wahre Risiko mit hoher Wahrscheinlichkeit gering. Die Abschätzungen liefern somit in gewisser Weise eine Rechtfertigung der Support Vector Machine.
+    
+    
+    
+    \subsection{Untersuchung der Risiko Abschätzungen für verschiedene Kernelfunktionen}
+    
+    Wir haben gesehen, dass der Wert von $k(x,x)$ in beiden eingeführten Risikoschranken eine besondere Rolle spielt. In der Oracle-Ungleichung \ref{thm:oracle_inequality} tritt der Wert in Form des Erwartungswertes $\mathbb{E}[k(X,X)]$ der Zufallsvariable $X$ auf. In der Risikoschranke \ref{thm:risk_bound} in Form von $r^{2} = \sup_{x \in \mathcal{X}} k(x,x)$ beziehungsweiese der Spur $Tr(K) = \sum_{i = 1}^{m} k(x_{i},x_{i})$ der Gram-Matrix $K$. Wir untersuchen nun dieser Größen für verschiedene Wahlen von Kernelfunktionen $k$.
+    
+    \subsubsection{Gauß-Kernel}
+        In Korollar \ref{cor:gauß_kernel} wurde der Gauß-Kernel $k: \mathcal{X} \times \mathcal{X} \to \mathbb{R}_{+}, (x,x') \mapsto \exp{(- \norm{x-x'}^{2} /\sigma^{2}})$ eingeführt. Dieser wird auch in der Praxis häufig in Support Vector Machines verwendet und liefert dort gute Ergebnisse. 
+        
+        Sei nun $x \in \mathcal{X}$ und $\sigma^{2} > 0$, dann gilt für den Gauß-Kernel
+        \[
+            k(x,x)
+            =
+            \exp{(- \frac{\norm{x-x}^{2}}{\sigma^{2}})}
+            =
+            \exp{(0)}
+            =
+            1.
+        \]
+        Daraus folgt insbesondere für die Zufallsvariable $X$, wobei $(X,Y) \sim \mathcal{D}$ der Verteilung der Daten unterliegen. 
+        \[
+            \mathbb{E}[k(X,X)] = \mathbb{E}[1] = 1.
+        \]
+        Und für die Spur von der Gram-Matrix $K$
+        \[
+            \Tr(K) = \sum_{i = 1}^{m} \underbrace{k(x_{i},x_{i})}_{= 1} = m.
+        \]
+        Die Feststellung ist, dass die Terme konstant sind. Die Abschätzungen sind unabhängig von der zugrundeliegenden Verteilung $\mathcal{D}$ der Daten.
+        Daher ergibt sich für die Oracle-Ungleichung \ref{thm:oracle_inequality}
+        \begin{equation} \label{eqn:gauß_oracle}
+            \mathbb{E}[\mathcal{R}(\hat{h}_{n}^{\text{SVM}})] \leq \inf_{\|f\|_{H} \leq \lambda} \mathcal{R}_{\varphi}(f) + \frac{8 \lambda}{\sqrt{m}}
+        \end{equation}
+        und für die Risikoschranken aus \ref{thm:risk_bound}
+        \begin{equation}\label{eqn:gauß_risk_bound}
+            \begin{split}
+            \mathcal{R}(h) &\leq \mathcal{R}_{m, \rho}(h) + 2 \frac{\lambda}{\rho \sqrt{m}} + \sqrt{\frac{\log(\frac{1}{\delta})}{2 m}} \\
+            \mathcal{R}(h) &\leq \mathcal{R}_{m, \rho}(h) + 2 \frac{\lambda}{\rho \sqrt{m}} + 3 \sqrt{\frac{\log(\frac{2}{\delta})}{2 m}}
+            \end{split}
+        \end{equation}
+        wobei die erste Abschätzung enger ist, was die zweite in diesem Fall obsolet macht.
+        
+        \vspace{5mm}
+        
+        Der Paramter $\sigma^{2}$ tritt hier nur in der Berechnung des (empirischen) Risikos auf und beeinflusst über diesen Term die Schranke. 
+        
+        Die Eigenschaft des Gauß-Kernels die für dieses Phänomen verantwortlich ist, ist die Translationsinvarianz dieses Kernels.
+        \begin{dfn}[Tanslationsinvarianz]
+            Eine Funktion $f: \mathbb{R}^{d} \times \mathbb{R}^{d} \to \mathbb{R}$ heißt \textbf{Translationsinvariant}, falls eine Funktion $f_{0}: \mathbb{R}^{d} \to \mathbb{R}$ existiert mit
+            \[
+                f(x,y) = f_{0}(x - y).
+            \]
+        \end{dfn}
+        
+        \begin{bem}
+            Der Gauß-Kernel, mit $\sigma^{2} > 0$,
+            \[
+                k(x,x') \mapsto \exp{\left(-\frac{\norm{x-x'}_{\mathbb{R}^{d}}}{\sigma^{2}}\right)} \textrm{ für alle $x,x' \in \mathbb{R}^{d}$}
+            \]
+            ist Translationsinvariant vermöge der Abblidung
+            \[
+                k_{0}(x) \mapsto \exp{\left(-\frac{\norm{x}_{\mathbb{R}^{d}}}{\sigma^{2}}\right)} \textrm{ für alle $x \in \mathbb{R}^{d}$}.
+            \]
+        \end{bem}
+        
+        Für translationsinvariante Kernel sind die Schranken also im allgemeinen unabhängig von der Verteilung der Daten sondern basieren nur auf der Wahl des translationsinvarianten Kernels. Für Kernel mit dieser Eigenschaft sind die Werte $\mathbb{E}[k(X,X)]$, $\Tr(K)$ und $r^2 = \sup_{x \in \mathcal{X}} k(x,x)$ nämlich konstant und lassen sich durch das Kennen von $k_{0}(0)$ berechnen. Meist findet sich die Konvention, dass translationsinvariante Kernel durch $k_{0}(0) = 1$ normiert sind. Es ergeben sich damit die gleichen Abschätzungen wie in (\ref{eqn:gauß_oracle}) und (\ref{eqn:gauß_risk_bound}) für allgemeine translationsinvariante Kernelfunktionen.
+        
+        \subsubsection{Polynomieller Kernel vom Grad 1 / linearer Kernel}
+        Der polynomielle Kernel vom Grad 1 stellt in gewisser Weise den einfachsten Kernel dar.\\
+        Der polynomielle Kernel vom Grad 1 war definiert als
+        \[
+            k: \mathcal{X} \times \mathcal{X} \to \mathbb{R}_{+}, k(x,y) \mapsto \langle x, y \rangle_{\mathbb{R}^{d}} + c
+        \]
+        für ein $c \geq 0$. Mit dieser Wahl des Kernels gelten für $x,x_{1},...,x_{m} \in \mathcal{X}$ und für eine Zufallsvariable $X$, wobei $(X,Y) \sim \mathcal{D}$ der Verteilung der Daten unterliegen, dass
+        \[
+            k(x,x) = \langle x, x \rangle_{\mathbb{R}^{d}} = \norm{x}_{\mathbb{R}^{d}}^{2}.
+        \]
+        Insbesondere
+        \[
+            \mathbb{E}[k(X,X)] = \mathbb{E}[\norm{X}_{\mathbb{R}^{d}}^{2}]
+        \]
+        und
+        \[
+            \Tr(K) = \sum_{i = 1}^{m} k(x_{i},x_{i}) = \sum_{i = 1}^{m} \norm{x_{i}}_{\mathbb{R}^{d}}^{2}
+        \]
+        sowie
+        \[
+            r^{2} = \sup_{x \in \mathcal{X}} k(x,x) = \sup_{x \in \mathcal{X}} \norm{x}_{\mathbb{R}^{d}}^{2}.
+        \]
+        Diese Werte können bereits in die Schranken aus \ref{thm:oracle_inequality} und \ref{thm:risk_bound} eingesetzt werden. 
+        
+        
+        
+        \subsubsection{Polynomielle Kernel von höherem Grad}
+        Nach Definition \ref{dfn:polynomial_kernel} ist der Polynomielle Kernel vom Grad $n \in \mathbb{N}$ gegeben durch $k(x,y) = (\langle x, y \rangle_{\mathbb{R}^{d}} + c)^{d}$ für alle $x,y \in \mathcal{X}$ und $c > 0$. Durch anwenden des binomischen Lehrsatzes t ergibt sich
+        \[
+            k(x,y)
+            =
+            (\langle x, y \rangle_{\mathbb{R}^{d}} + c)^{d}
+            =
+            \sum_{j = 1}^{n} \binom{n}{j} \langle x, y \rangle_{\mathbb{R}^{d}}^{n-j} c^{j}
+        \]
+        Für $x \in \mathcal{X}$ heißt das
+        \[
+            k(x,x)
+            =
+            \sum_{j = 1}^{n} \binom{n}{j} \langle x, x \rangle_{\mathbb{R^{d}}}^{n - j} c^{j}
+            =
+            \sum_{j = 1}^{n} \binom{n}{j} \norm{x}_{\mathbb{R}^{d}}^{2(n - j)} c^{j}
+        \]
+        Für den Erwartungswert der Zufallsvariable $X$, wobei $(X,Y) \sim \mathcal{D}$ der Verteilung der Daten unterliegen gilt dann
+        \[
+            \mathbb{E}[k(X,X)] = \sum_{j = 1}^{n} \binom{n}{j} \norm{X}_{\mathbb{R}^{d}}^{2(n - j)} c^{j}
+        \]
+        sowie für die Spur der Kernel-Matrix $K$ und das Supremum über alle $x \in \mathcal{X}$
+        \[
+            \Tr(K) = \sum_{i = 1}^{m} k(x_{i},x_{i}) = \sum_{i = 1}^{m} \sum_{j = 1}^{n} \binom{n}{j} \norm{x_{i}}_{\mathbb{R}^{d}}^{2(n - j)} c^{j}
+        \]
+        \[
+            r^{2} = \sup_{x \in \mathcal{X}} k(x,x) = \sup_{x \in \mathcal{X}} \sum_{j = 1}^{n} \binom{n}{j} \norm{x}_{\mathbb{R}^{d}}^{2 (n - j)} c^{j}.
+        \]
+        Es lässt sich also feststellen, dass eine große Norm der Datenpunkte die Risikoabschätzung gröber macht.
+        Leider beobachtet man, dass sich die Norm der Datenpunkte durch einfaches skalieren veringern kann und somit die Abschätzung beeinflussen kann. Eine Aussage über die Güte verschiedener polynomieller Kernel erschwert sich hierdurch. Beziehungsweise wird sie nicht von dieser Ungleichung abgedeckt.
+      
+    \newpage
+        
+    \section{Rückblick und Ausblick}
+        Ziel dieser Bachelorarbeit war es eine Einführung in die Support Vector Machine zu geben. Dafür wurden die geometrische Interpretation als Abstandsmaximierer und die Interpretation als empirische Risikominimierer vorgestellt.
+        Daraufhin wurde der weit verbreitete Kernel Trick vorgestellt welcher die SVMs in der Praxis sehr wettbewerbsfähig machen. Abschließend wurden eine Risikoschranke und eine Oracle-Inequality vorgestellt die eine theoretische Erklärung dafür geben warum die Support Vector Machines in der Praxis gute Ergebnisse liefern. Die Untersuchung für verschiedene Wahlen von Kerneln hat einige Einblicke gegeben, lässt jedoch einige Fragen offen. Als Auslblick bleibt die weitere Untersuchung der Schranken. Eventuell könnten engere Schranken gefunden werden oder die Schranken könnten mehr Informationen über die Wahl der Kernel beinhalten. Außerdem könnte weiterhin untersucht werden ob SVMs mit gleichen Risikoabschätzungen bei unterschiedlichen Kernel Wahlen ähnliche Ergebnisse erzielen.
+        
+        An den Leser, der das hier erworbene Wissen vertiefen möchte verweise ich auf das Buch \textit{Support Vector Machines}\cite{svm} von Steinwart und Christmann dieses liefert eine sehr aufschlussreiche und tiefgehende Untersuchung der Support Vector Machine und beide Autoren veröffentlichen weiterhin Forschungen auf diesem Gebiet.
+        
+        
+\newpage
+
+        \printbibliography
+        
+        
+        \newpage
+            Die vorliegende Arbeit habe ich selbständig verfasst und keine anderen als die
+        angegebenen Hilfsmittel – insbesondere keine im Quellenverzeichnis nicht benannten
+        Internet-Quellen – benutzt. Die Arbeit habe ich vorher nicht in einem anderen
+        Prüfungsverfahren eingereicht. Die eingereichte schriftliche Fassung entspricht genau
+        der auf dem elektronischen Speichermedium.
+        
+        \vspace*{2cm}
+        
+        Unterschrift:
+ \end{document}
